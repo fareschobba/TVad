@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http'); // For creating the server
+const { Server } = require('socket.io'); // Import Socket.IO
 
 // Load environment variables
 dotenv.config();
@@ -13,6 +15,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Create HTTP server and Socket.IO instance
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Allow all origins, customize for production
+    methods: ['GET', 'POST'],
+  },
+});
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // Handle custom events from the client
+  socket.on('message', (data) => {
+    console.log('Message received:', data);
+    // Emit an acknowledgment or broadcast to all clients
+    io.emit('message', `Server received: ${data}`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+  });
+});
 
 // Database connection
 const mongooseOptions = {
@@ -31,7 +59,7 @@ mongoose.connect(process.env.MONGODB_URI, mongooseOptions)
     process.exit(1);
   });
 
-mongoose.connection.on('error', err => {
+mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
@@ -45,7 +73,8 @@ const deviceRoutes = require('./routes/deviceRoutes');
 const advertisementRoutes = require('./routes/advertisementRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 
-app.get("/", (req, res) => res.send("Express on Vercel"));
+app.get("/", (req, res) => res.send("Express with Socket.IO"));
+
 // Route middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', deviceRoutes);
@@ -70,14 +99,9 @@ app.use((req, res) => {
 });
 
 // Start server
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server is running on port ${PORT}`);
-// });
-
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 }
@@ -89,4 +113,4 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-module.exports = app;
+module.exports = { app, io };
