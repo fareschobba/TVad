@@ -18,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Create HTTP server and Socket.IO instance
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
     origin: '*', // Allow all origins, customize for production
@@ -44,8 +45,8 @@ io.on('connection', (socket) => {
 
 // Database connection
 const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  // useNewUrlParser: true,
+  // useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
   socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
 };
