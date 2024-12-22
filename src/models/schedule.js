@@ -19,6 +19,10 @@ const scheduleSchema = new mongoose.Schema({
     type: Number, // Duration in seconds
     required: true
   },
+  endTime: {
+    type: Date,
+    required: false // Set to true if you want it mandatory
+  },
   playMode: {
     type: String,
     enum: ['loop', 'shuffle'],
@@ -32,9 +36,17 @@ const scheduleSchema = new mongoose.Schema({
   isDeleted: {
     type: Boolean,
     default: false
-  }
+  },
 }, {
   timestamps: true
+});
+
+// Optionally calculate `endTime` based on `startTime` and `playTime` before saving
+scheduleSchema.pre('save', function(next) {
+  if (!this.endTime && this.startTime && this.playTime) {
+    this.endTime = new Date(this.startTime.getTime() + this.playTime * 1000);
+  }
+  next();
 });
 
 const Schedule = mongoose.model('Schedule', scheduleSchema);

@@ -6,7 +6,9 @@ const {
   getAllDevices,
   getDeviceByNameOrId,
   updateDevice,
-  deleteDevice
+  deleteDevice,
+  undeleteDevice,
+  getDeviceById
 } = require('../controllers/deviceController');
 
 const router = express.Router();
@@ -20,5 +22,8 @@ router.use(protect);
 router.post('/', createDevice);
 router.put('/:id', updateDevice);
 router.delete('/:id', deleteDevice);
+router.get('/:id', getDeviceById);
+router.delete('/undeleteDevice/:id', undeleteDevice);
+
 
 module.exports = router;
