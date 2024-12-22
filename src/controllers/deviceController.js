@@ -41,7 +41,7 @@ const createDevice = async (req, res) => {
 // Get all devices (excluding deleted ones)
 const getAllDevices = async (req, res) => {
   try {
-    const devices = await Device.find({ isDeleted: false });
+    const devices = await Device.find();
     
     res.status(200).json({
       success: true,
@@ -172,11 +172,65 @@ const deleteDevice = async (req, res) => {
     });
   }
 };
+const undeleteDevice = async (req, res) => {
+  try {
+    const device = await Device.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: true },
+      { isDeleted: false },
+      { new: true }
+    );
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Device deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+// Get device by ID
+const getDeviceById = async (req, res) => {
+  try {
+    const device = await Device.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    });
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: device
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 module.exports = {
   createDevice,
   getAllDevices,
   getDeviceByNameOrId,
   updateDevice,
-  deleteDevice
+  deleteDevice,
+  undeleteDevice,
+  getDeviceById
 };
