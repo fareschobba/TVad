@@ -44,7 +44,7 @@ const createAdvertisement = async (req, res) => {
 // Get all advertisements
 const getAllAdvertisements = async (req, res) => {
   try {
-    const advertisements = await Advertisement.find({ isDeleted: false });
+    const advertisements = await Advertisement.find();
     res.status(200).json({
       success: true,
       data: advertisements
@@ -101,7 +101,31 @@ const updateAdvertisement = async (req, res) => {
     });
   }
 };
+const getAdvertisementById = async (req, res) => {
+  try {
+    const advertisement = await Advertisement.findOne({ 
+      _id: req.params.id, 
+      isDeleted: false 
+    });
 
+    if (!advertisement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: advertisement
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 // Delete advertisement (soft delete)
 const deleteAdvertisement = async (req, res) => {
   try {
@@ -130,9 +154,38 @@ const deleteAdvertisement = async (req, res) => {
   }
 };
 
+const undeleteAdvertisement = async (req, res) => {
+  try {
+    const advertisement = await Advertisement.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: true },
+      { isDeleted: false },
+      { new: true }
+    );
+
+    if (!advertisement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Advertisement undeleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createAdvertisement,
   getAllAdvertisements,
   updateAdvertisement,
-  deleteAdvertisement
+  deleteAdvertisement,
+  undeleteAdvertisement,
+  getAdvertisementById
 };

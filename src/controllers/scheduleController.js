@@ -1,59 +1,71 @@
-const Device = require('../models/device');
-const Advertisement = require('../models/advertisement');
-const Schedule = require('../models/schedule');
+const Device = require("../models/device");
+const Advertisement = require("../models/advertisement");
+const Schedule = require("../models/schedule");
+const mongoose = require("mongoose");
 
-const checkScheduleOverlap = async (deviceId, startTime, playTime, currentScheduleId = null) => {
-    if (!playTime || playTime <= 0) {
-        throw new Error('playTime must be greater than 0');
-    }
+const checkScheduleOverlap = async (
+  deviceId,
+  startTime,
+  playTime,
+  currentScheduleId = null
+) => {
+  if (!playTime || playTime <= 0) {
+    throw new Error("playTime must be greater than 0");
+  }
 
-    const endTime = new Date(new Date(startTime).getTime() + playTime * 1000);
-    const overlapQuery = {
-        deviceId,
-        isDeleted: false,
-        $or: [
-            {
-                startTime: { $lt: endTime },
-                endTime: { $gt: startTime }
-            },
-            {
-                startTime: { $gte: startTime },
-                endTime: { $lte: endTime }
-            }
-        ]
-    };
+  const endTime = new Date(new Date(startTime).getTime() + playTime * 1000);
+  const overlapQuery = {
+    deviceId,
+    isDeleted: false,
+    $or: [
+      {
+        startTime: { $lt: endTime },
+        endTime: { $gt: startTime },
+      },
+      {
+        startTime: { $gte: startTime },
+        endTime: { $lte: endTime },
+      },
+    ],
+  };
 
-    if (currentScheduleId) {
-        overlapQuery._id = { $ne: currentScheduleId };
-    }
+  if (currentScheduleId) {
+    overlapQuery._id = { $ne: currentScheduleId };
+  }
 
-    return await Schedule.findOne(overlapQuery);
+  return await Schedule.findOne(overlapQuery);
 };
-
 
 // Create schedule
 exports.createSchedule = async (req, res) => {
   try {
-    const { advertisementIds, deviceId, startTime, playTime, playMode, repeat } = req.body;
+    const {
+      advertisementIds,
+      deviceId,
+      startTime,
+      playTime,
+      playMode,
+      repeat,
+    } = req.body;
 
     // Validate device exists and not deleted
     const device = await Device.findOne({ _id: deviceId, isDeleted: false });
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found'
+        message: "Device not found",
       });
     }
 
     // Validate all advertisements exist and not deleted
     const advertisements = await Advertisement.find({
       _id: { $in: advertisementIds },
-      isDeleted: false
+      isDeleted: false,
     });
     if (advertisements.length !== advertisementIds.length) {
       return res.status(404).json({
         success: false,
-        message: 'One or more advertisements not found'
+        message: "One or more advertisements not found",
       });
     }
 
@@ -75,37 +87,36 @@ exports.createSchedule = async (req, res) => {
       endTime,
       playTime,
       playMode,
-      repeat
+      repeat,
     });
 
     res.status(201).json({
       success: true,
-      data: schedule
+      data: schedule,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
-
 
 // Get all schedules
 exports.getAllSchedules = async (req, res) => {
   try {
     const schedules = await Schedule.find({ isDeleted: false })
-      .populate('deviceId', 'name description')
-      .populate('advertisementIds', 'name description videoUrl orientation');
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
 
     res.status(200).json({
       success: true,
-      data: schedules
+      data: schedules,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -126,25 +137,25 @@ exports.getSchedulesByFilter = async (req, res) => {
       const searchDate = new Date(date);
       const nextDay = new Date(searchDate);
       nextDay.setDate(nextDay.getDate() + 1);
-      
+
       query.startTime = {
         $gte: searchDate,
-        $lt: nextDay
+        $lt: nextDay,
       };
     }
 
     const schedules = await Schedule.find(query)
-      .populate('deviceId', 'name description')
-      .populate('advertisementIds', 'name description videoUrl orientation');
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
 
     res.status(200).json({
       success: true,
-      data: schedules
+      data: schedules,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -152,15 +163,19 @@ exports.getSchedulesByFilter = async (req, res) => {
 // Update schedule
 exports.updateSchedule = async (req, res) => {
   try {
-    const { advertisementIds, startTime, playTime, playMode, repeat } = req.body;
+    const { advertisementIds, startTime, playTime, playMode, repeat } =
+      req.body;
     const scheduleId = req.params.id;
 
     // Validate schedule exists
-    const schedule = await Schedule.findOne({ _id: scheduleId, isDeleted: false });
+    const schedule = await Schedule.findOne({
+      _id: scheduleId,
+      isDeleted: false,
+    });
     if (!schedule) {
       return res.status(404).json({
         success: false,
-        message: 'Schedule not found'
+        message: "Schedule not found",
       });
     }
 
@@ -168,12 +183,12 @@ exports.updateSchedule = async (req, res) => {
     if (advertisementIds) {
       const advertisements = await Advertisement.find({
         _id: { $in: advertisementIds },
-        isDeleted: false
+        isDeleted: false,
       });
       if (advertisements.length !== advertisementIds.length) {
         return res.status(404).json({
           success: false,
-          message: 'One or more advertisements not found'
+          message: "One or more advertisements not found",
         });
       }
     }
@@ -188,20 +203,25 @@ exports.updateSchedule = async (req, res) => {
         newPlayTime,
         scheduleId
       );
-      
+
       if (overlappingSchedule) {
         return res.status(400).json({
           success: false,
-          message: 'Schedule update would create an overlap with an existing schedule',
-          conflictingSchedule: overlappingSchedule
+          message:
+            "Schedule update would create an overlap with an existing schedule",
+          conflictingSchedule: overlappingSchedule,
         });
       }
     }
 
     // Calculate new endTime if needed
-    const endTime = startTime || playTime ? 
-      new Date(new Date(startTime || schedule.startTime).getTime() + (playTime || schedule.playTime) * 60000) :
-      schedule.endTime;
+    const endTime =
+      startTime || playTime
+        ? new Date(
+            new Date(startTime || schedule.startTime).getTime() +
+              (playTime || schedule.playTime) * 60000
+          )
+        : schedule.endTime;
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
       scheduleId,
@@ -211,20 +231,21 @@ exports.updateSchedule = async (req, res) => {
         endTime,
         playTime,
         playMode,
-        repeat
+        repeat,
       },
       { new: true, runValidators: true }
-    ).populate('deviceId', 'name description')
-     .populate('advertisementIds', 'name description');
+    )
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description");
 
     res.status(200).json({
       success: true,
-      data: updatedSchedule
+      data: updatedSchedule,
     });
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -241,18 +262,61 @@ exports.deleteSchedule = async (req, res) => {
     if (!schedule) {
       return res.status(404).json({
         success: false,
-        message: 'Schedule not found'
+        message: "Schedule not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Schedule deleted successfully'
+      message: "Schedule deleted successfully",
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
+  }
+};
+exports.archiveSchedule = async (req, res) => {
+  const { id } = req.params;  // L'ID passé dans l'URL
+
+  try {
+    // Vérifier si l'ID est un ObjectId valide
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID de programme invalide' });
+    }
+
+    // Mise à jour du programme pour l'archiver
+    const updatedSchedule = await Schedule.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true } // Retourne le document mis à jour
+    );
+
+    if (!updatedSchedule) {
+      return res.status(404).json({ message: 'Schedule introuvable' });
+    }
+
+    return res.json(updatedSchedule);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: `Erreur lors de l'archivage : ${error.message}` });
+  }
+};
+
+exports.getArchivedSchedules = async (req, res) => {
+  try {
+    const archivedSchedules = await Schedule.find({ isDeleted: true }).populate(
+      "deviceId advertisementIds" // On suppose que vous avez des références dans ces champs
+    );
+
+    if (archivedSchedules.length === 0) {
+      return res.status(404).json({ message: 'Aucun programme archivé trouvé' });
+    }
+
+    return res.json(archivedSchedules);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: `Erreur lors de la récupération des schedules archivés : ${error.message}` });
   }
 };
