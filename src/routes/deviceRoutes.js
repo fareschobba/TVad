@@ -20,7 +20,7 @@ router.get('/search', getDeviceByNameOrId);
 
 
 //new add
-router.patch('/isPaired', pairDevice);
+router.patch('/:id/isPaired', pairDevice);
 
 // Protected routes (require authentication)
 router.use(protect);
