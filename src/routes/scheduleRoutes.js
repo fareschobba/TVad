@@ -5,7 +5,9 @@ const {
   getAllSchedules,
   getSchedulesByFilter,
   updateSchedule,
-  deleteSchedule
+  deleteSchedule,
+  archiveSchedule,
+  getArchivedSchedules
 } = require('../controllers/scheduleController');
 
 const router = express.Router();
@@ -18,5 +20,7 @@ router.get('/search', getSchedulesByFilter);
 router.post('/', protect, createSchedule);
 router.put('/:id', protect, updateSchedule);
 router.delete('/:id', protect, deleteSchedule);
+router.put('/archives/:id',protect,archiveSchedule);
+router.get('/archives',protect,getArchivedSchedules);
 
 module.exports = router;
