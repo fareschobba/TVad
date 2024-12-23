@@ -104,8 +104,15 @@ const pairDevice = async (req, res) => {
   try {
     const { id } = req.params; // Assuming the device ID is passed as a URL parameter
 
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'The deviceId parameter is required',
+      });
+    }
+
     // Find the device by ID
-    const device = await Device.findById(id);
+    const device = await Device.findOne({deviceId : id});
 
     // If device not found
     if (!device) {
