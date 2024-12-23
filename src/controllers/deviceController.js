@@ -99,6 +99,49 @@ const getDeviceByNameOrId = async (req, res) => {
   }
 };
 
+//Get Device by name or id
+const pairDevice = async (req, res) => {
+  try {
+    const { id } = req.params; // Assuming the device ID is passed as a URL parameter
+
+    // Find the device by ID
+    const device = await Device.findById(id);
+
+    // If device not found
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    // Check if the device is already paired
+    if (device.isPaired) {
+      return res.status(403).json({
+        success: false,
+        message: 'Device is already paired'
+      });
+    }
+
+    // Mark the device as paired
+    device.isPaired = true;
+    await device.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Device successfully paired',
+      data: device
+    });
+  } catch (error) {
+    // Handle errors
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
 // Update device
 const updateDevice = async (req, res) => {
   try {
@@ -178,5 +221,6 @@ module.exports = {
   getAllDevices,
   getDeviceByNameOrId,
   updateDevice,
-  deleteDevice
+  deleteDevice,
+  pairDevice
 };

@@ -6,7 +6,8 @@ const {
   getAllDevices,
   getDeviceByNameOrId,
   updateDevice,
-  deleteDevice
+  deleteDevice,
+  pairDevice
 } = require('../controllers/deviceController');
 
 const router = express.Router();
@@ -14,6 +15,10 @@ const router = express.Router();
 // Public routes (no authentication required)
 router.get('/', getAllDevices);
 router.get('/search', getDeviceByNameOrId);
+
+
+//new add
+router.patch('/isPaired', pairDevice);
 
 // Protected routes (require authentication)
 router.use(protect);
