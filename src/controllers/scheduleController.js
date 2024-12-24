@@ -97,7 +97,7 @@ exports.createSchedule = async (req, res) => {
 
     // Emit socket event to notify connected clients
     const io = socket.getIO();
-    io.emit('updateSchedule', {
+    io.emit(`updateSchedule/${deviceId}`, {
       schedule: newSchedule,
     device: device
     });
@@ -189,7 +189,7 @@ exports.getSchedulesByFilter = async (req, res) => {
 // Update schedule
 exports.updateSchedule = async (req, res) => {
   try {
-    const { advertisementIds, startTime, playTime, playMode, repeat } =
+    const { advertisementIds, startTime, playTime, playMode, repeat, deviceId } =
       req.body;
     const scheduleId = req.params.id;
 
@@ -266,7 +266,7 @@ exports.updateSchedule = async (req, res) => {
 
     // Emit socket event to notify connected clients
     const io = socket.getIO();
-    io.emit('updateSchedule', {
+    io.emit(`updateSchedule/${deviceId}`, {
       schedule: updatedSchedule,
       device: updatedSchedule.deviceId
     });
