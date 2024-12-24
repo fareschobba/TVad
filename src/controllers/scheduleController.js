@@ -1,8 +1,8 @@
-const mongoose = require("mongoose");
 const Device = require("../models/device");
 const Advertisement = require("../models/advertisement");
 const Schedule = require("../models/schedule");
-const socket = require("../config/socket");
+const mongoose = require("mongoose");
+const socket = require('../config/socket');
 
 const checkScheduleOverlap = async (
   deviceId,
@@ -36,6 +36,136 @@ const checkScheduleOverlap = async (
 
   return await Schedule.findOne(overlapQuery);
 };
+
+// Get all schedules
+exports.getAllSchedules = async (req, res) => {
+  try {
+    const schedules = await Schedule.find({ isDeleted: false })
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
+
+    res.status(200).json({
+      success: true,
+      data: schedules,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Get schedules by filter (advertisementId/deviceId/date)
+exports.getSchedulesByFilter = async (req, res) => {
+  try {
+    const { advertisementId, deviceId, date } = req.query;
+    const query = { isDeleted: false };
+
+    if (advertisementId) {
+      query.advertisementIds = advertisementId;
+    }
+    if (deviceId) {
+      // Validate device exists and not deleted
+      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+      if (!device) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found",
+        });
+      }
+      console.log("device : ", device)
+      query.deviceId = device._id;
+    }
+    if (date) {
+      const searchDate = new Date(date);
+      const nextDay = new Date(searchDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      query.startTime = {
+        $gte: searchDate,
+        $lt: nextDay,
+      };
+
+      console.log("query :", query);
+    }
+
+    const schedules = await Schedule.find(query)
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
+
+    res.status(200).json({
+      success: true,
+      data: schedules,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// Update schedule by deviceId
+exports.updateScheduleByDeviceId = async (req, res) => {
+  try {
+    const { deviceId, advertisementIds, startTime, playTime, playMode, repeat } = req.body;
+
+    // Validate device exists and not deleted
+    const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: "Device not found",
+      });
+    }
+
+    // Find the schedule by deviceId
+    const schedule = await Schedule.findOne({ deviceId: device._id });
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found for the device",
+      });
+    }
+
+    // Update schedule details
+    schedule.advertisementIds = advertisementIds || schedule.advertisementIds;
+    schedule.startTime = startTime || schedule.startTime;
+    schedule.playTime = playTime || schedule.playTime;
+    schedule.playMode = playMode || schedule.playMode;
+    schedule.repeat = repeat || schedule.repeat;
+
+    // Calculate end time
+    schedule.endTime = new Date(new Date(schedule.startTime).getTime() + schedule.playTime * 60000);
+
+    await schedule.save();
+
+    // Emit socket event to notify connected clients
+    const io = socket.getIO();
+    io.to(deviceId.toString()).emit('updateSchedule', {
+      schedule: schedule,
+      device: device
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Schedule updated successfully",
+      data: schedule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+
 
 // Create schedule
 exports.createSchedule = async (req, res) => {
@@ -115,69 +245,6 @@ exports.createSchedule = async (req, res) => {
   }
 };
 
-// Get all schedules
-exports.getAllSchedules = async (req, res) => {
-  try {
-    const schedules = await Schedule.find({ isDeleted: false })
-      .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation");
-
-    res.status(200).json({
-      success: true,
-      data: schedules,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// Get schedules by filter (advertisementId/deviceId/date)
-exports.getSchedulesByFilter = async (req, res) => {
-  try {
-    const { advertisementId, deviceId, date } = req.query;
-    const query = { isDeleted: false };
-
-    if (advertisementId) {
-      query.advertisementIds = advertisementId;
-    }
-    if (deviceId) {
-      const device = await Device.findOne({ _id: deviceId, isDeleted: false });
-      if (!device) {
-        return res.status(404).json({
-          success: false,
-          message: "Device not found",
-        });
-      }
-      query.deviceId = device._id;
-    }
-    if (date) {
-      const searchDate = new Date(date);
-      const nextDay = new Date(searchDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      query.startTime = {
-        $gte: searchDate,
-        $lt: nextDay,
-      };
-    }
-
-    const schedules = await Schedule.find(query)
-      .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation");
-
-    res.status(200).json({
-      success: true,
-      data: schedules,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
 
 // Update schedule
 exports.updateSchedule = async (req, res) => {
@@ -192,8 +259,8 @@ exports.updateSchedule = async (req, res) => {
     } = req.body;
 
     const scheduleId = req.params.id;
-//console all req.body with attributes
-console.log("deviceId"+deviceId,"advertisementIds"+advertisementIds,"startTime"+startTime,"playTime"+playTime,"playMode"+playMode,"repeat"+repeat) 
+    //console all req.body with attributes
+    console.log("deviceId" + deviceId, "advertisementIds" + advertisementIds, "startTime" + startTime, "playTime" + playTime, "playMode" + playMode, "repeat" + repeat)
 
     // Validate schedule exists
     const schedule = await Schedule.findOne({
@@ -252,9 +319,9 @@ console.log("deviceId"+deviceId,"advertisementIds"+advertisementIds,"startTime"+
     const endTime =
       startTime || playTime
         ? new Date(
-            new Date(startTime || schedule.startTime).getTime() +
-              (playTime || schedule.playTime) * 1000
-          )
+          new Date(startTime || schedule.startTime).getTime() +
+          (playTime || schedule.playTime) * 1000
+        )
         : schedule.endTime;
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
