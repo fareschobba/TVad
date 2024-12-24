@@ -2,8 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const http = require('http'); // For creating the server
-const { Server } = require('socket.io'); // Import Socket.IO
+const http = require('http');
 
 // Load environment variables
 dotenv.config();
@@ -16,27 +15,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Create HTTP server and Socket.IO instance
+// Create HTTP server
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: '*', // Allow all origins, customize for production
-    methods: ['GET', 'POST'],
-  },
-});
+// Initialize Socket.IO
+const socketConfig = require('./config/socket');
+const io = socketConfig.init(server);
 
-// Socket.IO connection handler
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+// Import routes
+const deviceRoutes = require('./routes/deviceRoutes');
+const advertisementRoutes = require('./routes/advertisementRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
+const authRoutes = require('./routes/authRoutes');
 
-  // Handle custom events from the client
-  socket.on('message', (data) => {
-    console.log('Message received:', data);
-    // Emit an acknowledgment or broadcast to all clients
-    io.emit('message', `Server received: ${data}`);
-  });
-
+// Use routes
+app.use('/api/devices', deviceRoutes);
+app.use('/api/advertisements', advertisementRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/auth', authRoutes);
     // Handle custom events from the client
     socket.on('updateSchedule', (data) => {
       console.log('schedule received:', data);
@@ -75,19 +71,24 @@ mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
 });
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const deviceRoutes = require('./routes/deviceRoutes');
-const advertisementRoutes = require('./routes/advertisementRoutes');
-const scheduleRoutes = require('./routes/scheduleRoutes');
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  // Handle custom events from the client
+  socket.on('message', (data) => {
+    console.log('Message received:', data);
+    // Emit an acknowledgment or broadcast to all clients
+    io.emit('message', `Server received: ${data}`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+  });
+});
 
 app.get("/", (req, res) => res.send("Express with Socket.IO"));
-
-// Route middleware
-app.use('/api/auth', authRoutes);
-app.use('/api/devices', deviceRoutes);
-app.use('/api/advertisements', advertisementRoutes);
-app.use('/api/schedules', scheduleRoutes);
 
 // Basic error handler
 app.use((err, req, res, next) => {
@@ -116,7 +117,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
+  console.log('UNHANDLED REJECTION! Shutting down...');
   console.log(err.name, err.message);
   process.exit(1);
 });
