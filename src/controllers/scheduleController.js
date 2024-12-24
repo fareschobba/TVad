@@ -98,8 +98,8 @@ exports.createSchedule = async (req, res) => {
     // Emit socket event to notify connected clients
     const io = socket.getIO();
     io.emit('updateSchedule', {
-      schedule: "newSchedule"
-   
+      schedule: newSchedule,
+    device: device
     });
 //console the io result
 console.log(io);
@@ -262,7 +262,14 @@ exports.updateSchedule = async (req, res) => {
       { new: true, runValidators: true }
     )
       .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description");
+      .populate("advertisementIds", "name description videoUrl orientation");
+
+    // Emit socket event to notify connected clients
+    const io = socket.getIO();
+    io.emit('updateSchedule', {
+      schedule: updatedSchedule,
+      device: updatedSchedule.deviceId
+    });
 
     res.status(200).json({
       success: true,
@@ -345,4 +352,89 @@ exports.getArchivedSchedules = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: `Erreur lors de la récupération des schedules archivés : ${error.message}` });
   }
+
+
 };
+
+  // Update schedule by deviceId
+  exports.updateScheduleByDeviceId = async (req, res) => {
+    try {
+      const { deviceId, advertisementIds, startTime, playTime, playMode, repeat } = req.body;
+  
+      // Validate device exists and not deleted
+      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+      if (!device) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found",
+        });
+      }
+  
+      // Find the schedule by deviceId
+      const schedule = await Schedule.findOne({ deviceId: device._id });
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: "Schedule not found for the device",
+        });
+      }
+  
+      // Update schedule details
+      schedule.advertisementIds = advertisementIds || schedule.advertisementIds;
+      schedule.startTime = startTime || schedule.startTime;
+      schedule.playTime = playTime || schedule.playTime;
+      schedule.playMode = playMode || schedule.playMode;
+      schedule.repeat = repeat || schedule.repeat;
+  
+      // Calculate end time
+      schedule.endTime = new Date(new Date(schedule.startTime).getTime() + schedule.playTime * 60000);
+  
+      await schedule.save();
+  
+      // Emit socket event to notify connected clients
+      const io = socket.getIO();
+      io.to(deviceId.toString()).emit('updateSchedule', {
+        schedule: schedule,
+        device: device
+      });
+  
+      res.status(200).json({
+        success: true,
+        message: "Schedule updated successfully",
+        data: schedule,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  };
+
+  //get schedule by id populate the device and advertisement
+  exports.getScheduleById = async (req, res) => {
+    try {
+      const schedule = await Schedule.findById(req.params.id)
+        .populate("deviceId", "name description")
+        .populate("advertisementIds", "name description videoUrl orientation");
+  
+      if (!schedule) {
+        return res.status(404).json({
+          success: false,
+          message: "Schedule not found",
+        });
+      }
+  
+      res.status(200).json({
+        success: true,
+        data: schedule,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  };
+  
+  
