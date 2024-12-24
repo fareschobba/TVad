@@ -131,7 +131,16 @@ exports.getSchedulesByFilter = async (req, res) => {
       query.advertisementIds = advertisementId;
     }
     if (deviceId) {
-      query.deviceId = deviceId;
+      // Validate device exists and not deleted
+      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+      if (!device) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found",
+        });
+      }
+      console.log("device : " ,device)
+      query.deviceId = device._id;
     }
     if (date) {
       const searchDate = new Date(date);
@@ -142,6 +151,8 @@ exports.getSchedulesByFilter = async (req, res) => {
         $gte: searchDate,
         $lt: nextDay,
       };
+
+      console.log("query :", query);
     }
 
     const schedules = await Schedule.find(query)
@@ -218,9 +229,9 @@ exports.updateSchedule = async (req, res) => {
     const endTime =
       startTime || playTime
         ? new Date(
-            new Date(startTime || schedule.startTime).getTime() +
-              (playTime || schedule.playTime) * 60000
-          )
+          new Date(startTime || schedule.startTime).getTime() +
+          (playTime || schedule.playTime) * 60000
+        )
         : schedule.endTime;
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
