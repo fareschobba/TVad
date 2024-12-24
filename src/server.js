@@ -34,18 +34,7 @@ app.use('/api/advertisements', advertisementRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
     // Handle custom events from the client
-    socket.on('updateSchedule', (data) => {
-      console.log('schedule received:', data);
-      // Emit an acknowledgment or broadcast to all clients
-      io.emit('updateSchedule', `update schedule with: ${data}`);
-    });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('A user disconnected:', socket.id);
-  });
-});
-
+   
 // Database connection
 const mongooseOptions = {
   // useNewUrlParser: true,
