@@ -98,8 +98,8 @@ exports.createSchedule = async (req, res) => {
     // Emit socket event to notify connected clients
     const io = socket.getIO();
     io.emit('updateSchedule', {
-      schedule: newSchedule,
-      device: device
+      schedule: "newSchedule"
+   
     });
 //console the io result
 console.log(io);
