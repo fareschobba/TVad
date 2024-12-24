@@ -7,7 +7,7 @@ const scheduleSchema = new mongoose.Schema({
     required: true
   }],
   deviceId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Device',
     required: true
   },
