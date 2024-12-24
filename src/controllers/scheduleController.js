@@ -2,6 +2,7 @@ const Device = require("../models/device");
 const Advertisement = require("../models/advertisement");
 const Schedule = require("../models/schedule");
 const mongoose = require("mongoose");
+const socket = require('../config/socket');
 
 const checkScheduleOverlap = async (
   deviceId,
@@ -70,17 +71,19 @@ exports.createSchedule = async (req, res) => {
     }
 
     // Check for schedule overlap
-    // const overlappingSchedule = await checkScheduleOverlap(deviceId, startTime, playTime);
-    // if (overlappingSchedule) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: 'Schedule overlaps with an existing schedule',
-    //     conflictingSchedule: overlappingSchedule
-    //   });
-    // }
+    const overlap = await checkScheduleOverlap(deviceId, startTime, playTime);
+    if (overlap) {
+      return res.status(400).json({
+        success: false,
+        message: "Schedule overlaps with existing schedule",
+      });
+    }
 
+    // Calculate end time
     const endTime = new Date(new Date(startTime).getTime() + playTime * 1000);
-    const schedule = await Schedule.create({
+
+    // Create new schedule
+    const newSchedule = new Schedule({
       advertisementIds,
       deviceId,
       startTime,
@@ -90,12 +93,24 @@ exports.createSchedule = async (req, res) => {
       repeat,
     });
 
+    await newSchedule.save();
+
+    // Emit socket event to notify connected clients
+    const io = socket.getIO();
+    io.emit('updateSchedule', {
+      schedule: newSchedule,
+      device: device
+    });
+//console the io result
+console.log(io);
+
     res.status(201).json({
       success: true,
-      data: schedule,
+      message: "Schedule created successfully",
+      data: newSchedule,
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
