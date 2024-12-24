@@ -32,6 +32,10 @@ const deviceSchema = new mongoose.Schema({
   isDeleted: {
     type: Boolean,
     default: false
+  },
+  isPaired: {
+    type: Boolean,
+    default: false
   }
 });
 
