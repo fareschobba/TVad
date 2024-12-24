@@ -1,8 +1,8 @@
+const mongoose = require("mongoose");
 const Device = require("../models/device");
 const Advertisement = require("../models/advertisement");
 const Schedule = require("../models/schedule");
-const mongoose = require("mongoose");
-const socket = require('../config/socket');
+const socket = require("../config/socket");
 
 const checkScheduleOverlap = async (
   deviceId,
@@ -97,12 +97,10 @@ exports.createSchedule = async (req, res) => {
 
     // Emit socket event to notify connected clients
     const io = socket.getIO();
-    io.emit(`updateSchedule/${deviceId}`, {
+    io.emit(`updateSchedule/${device.deviceId}`, {
       schedule: newSchedule,
-    device: device
+      device: device,
     });
-//console the io result
-console.log(io);
 
     res.status(201).json({
       success: true,
@@ -146,28 +144,23 @@ exports.getSchedulesByFilter = async (req, res) => {
       query.advertisementIds = advertisementId;
     }
     if (deviceId) {
-      // Validate device exists and not deleted
-      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+      const device = await Device.findOne({ _id: deviceId, isDeleted: false });
       if (!device) {
         return res.status(404).json({
           success: false,
           message: "Device not found",
         });
       }
-      console.log("device : " ,device)
       query.deviceId = device._id;
     }
     if (date) {
       const searchDate = new Date(date);
       const nextDay = new Date(searchDate);
       nextDay.setDate(nextDay.getDate() + 1);
-
       query.startTime = {
         $gte: searchDate,
         $lt: nextDay,
       };
-
-      console.log("query :", query);
     }
 
     const schedules = await Schedule.find(query)
@@ -189,9 +182,18 @@ exports.getSchedulesByFilter = async (req, res) => {
 // Update schedule
 exports.updateSchedule = async (req, res) => {
   try {
-    const { advertisementIds, startTime, playTime, playMode, repeat, deviceId } =
-      req.body;
+    const {
+      deviceId,
+      advertisementIds,
+      startTime,
+      playTime,
+      playMode,
+      repeat,
+    } = req.body;
+
     const scheduleId = req.params.id;
+//console all req.body with attributes
+console.log("deviceId"+deviceId,"advertisementIds"+advertisementIds,"startTime"+startTime,"playTime"+playTime,"playMode"+playMode,"repeat"+repeat) 
 
     // Validate schedule exists
     const schedule = await Schedule.findOne({
@@ -205,7 +207,16 @@ exports.updateSchedule = async (req, res) => {
       });
     }
 
-    // If advertisementIds are being updated, validate they exist
+    // Validate device exists and not deleted
+    const device = await Device.findOne({ _id: deviceId, isDeleted: false });
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: "Device not found",
+      });
+    }
+
+    // Validate advertisements if updated
     if (advertisementIds) {
       const advertisements = await Advertisement.find({
         _id: { $in: advertisementIds },
@@ -219,39 +230,37 @@ exports.updateSchedule = async (req, res) => {
       }
     }
 
-    // Check for schedule overlap if time-related fields are being updated
+    // Check for schedule overlap if time-related fields are updated
     if (startTime || playTime) {
       const newStartTime = startTime || schedule.startTime;
       const newPlayTime = playTime || schedule.playTime;
       const overlappingSchedule = await checkScheduleOverlap(
-        schedule.deviceId,
+        deviceId,
         newStartTime,
         newPlayTime,
         scheduleId
       );
-
       if (overlappingSchedule) {
         return res.status(400).json({
           success: false,
-          message:
-            "Schedule update would create an overlap with an existing schedule",
-          conflictingSchedule: overlappingSchedule,
+          message: "Schedule update would create an overlap with an existing schedule",
         });
       }
     }
 
-    // Calculate new endTime if needed
+    // Calculate new end time if needed
     const endTime =
       startTime || playTime
         ? new Date(
-          new Date(startTime || schedule.startTime).getTime() +
-          (playTime || schedule.playTime) * 60000
-        )
+            new Date(startTime || schedule.startTime).getTime() +
+              (playTime || schedule.playTime) * 1000
+          )
         : schedule.endTime;
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
       scheduleId,
       {
+        deviceId,
         advertisementIds,
         startTime,
         endTime,
@@ -260,15 +269,13 @@ exports.updateSchedule = async (req, res) => {
         repeat,
       },
       { new: true, runValidators: true }
-    )
-      .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation");
+    ).populate("deviceId", "name description").populate("advertisementIds", "name description videoUrl orientation");
 
     // Emit socket event to notify connected clients
     const io = socket.getIO();
-    io.emit(`updateSchedule/${deviceId}`, {
+    io.emit(`updateSchedule/${device.deviceId}`, {
       schedule: updatedSchedule,
-      device: updatedSchedule.deviceId
+      device: device,
     });
 
     res.status(200).json({
@@ -276,7 +283,7 @@ exports.updateSchedule = async (req, res) => {
       data: updatedSchedule,
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -310,131 +317,71 @@ exports.deleteSchedule = async (req, res) => {
     });
   }
 };
+
+// Archive schedule
 exports.archiveSchedule = async (req, res) => {
-  const { id } = req.params;  // L'ID passé dans l'URL
+  const { id } = req.params;
 
   try {
-    // Vérifier si l'ID est un ObjectId valide
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'ID de programme invalide' });
+      return res.status(400).json({ message: "Invalid schedule ID" });
     }
 
-    // Mise à jour du programme pour l'archiver
     const updatedSchedule = await Schedule.findByIdAndUpdate(
       id,
       { isDeleted: true },
-      { new: true } // Retourne le document mis à jour
+      { new: true }
     );
 
     if (!updatedSchedule) {
-      return res.status(404).json({ message: 'Schedule introuvable' });
+      return res.status(404).json({ message: "Schedule not found" });
     }
 
-    return res.json(updatedSchedule);
+    res.json(updatedSchedule);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: `Erreur lors de l'archivage : ${error.message}` });
+    res.status(500).json({ message: `Error archiving schedule: ${error.message}` });
   }
 };
 
+// Get archived schedules
 exports.getArchivedSchedules = async (req, res) => {
   try {
-    const archivedSchedules = await Schedule.find({ isDeleted: true }).populate(
-      "deviceId advertisementIds" // On suppose que vous avez des références dans ces champs
-    );
+    const archivedSchedules = await Schedule.find({ isDeleted: true })
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
 
     if (archivedSchedules.length === 0) {
-      return res.status(404).json({ message: 'Aucun programme archivé trouvé' });
+      return res.status(404).json({ message: "No archived schedules found" });
     }
 
-    return res.json(archivedSchedules);
+    res.json(archivedSchedules);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: `Erreur lors de la récupération des schedules archivés : ${error.message}` });
+    res.status(500).json({ message: `Error retrieving archived schedules: ${error.message}` });
   }
-
-
 };
 
-  // Update schedule by deviceId
-  exports.updateScheduleByDeviceId = async (req, res) => {
-    try {
-      const { deviceId, advertisementIds, startTime, playTime, playMode, repeat } = req.body;
-  
-      // Validate device exists and not deleted
-      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
-      if (!device) {
-        return res.status(404).json({
-          success: false,
-          message: "Device not found",
-        });
-      }
-  
-      // Find the schedule by deviceId
-      const schedule = await Schedule.findOne({ deviceId: device._id });
-      if (!schedule) {
-        return res.status(404).json({
-          success: false,
-          message: "Schedule not found for the device",
-        });
-      }
-  
-      // Update schedule details
-      schedule.advertisementIds = advertisementIds || schedule.advertisementIds;
-      schedule.startTime = startTime || schedule.startTime;
-      schedule.playTime = playTime || schedule.playTime;
-      schedule.playMode = playMode || schedule.playMode;
-      schedule.repeat = repeat || schedule.repeat;
-  
-      // Calculate end time
-      schedule.endTime = new Date(new Date(schedule.startTime).getTime() + schedule.playTime * 60000);
-  
-      await schedule.save();
-  
-      // Emit socket event to notify connected clients
-      const io = socket.getIO();
-      io.to(deviceId.toString()).emit('updateSchedule', {
-        schedule: schedule,
-        device: device
-      });
-  
-      res.status(200).json({
-        success: true,
-        message: "Schedule updated successfully",
-        data: schedule,
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message,
-      });
-    }
-  };
+// Get schedule by ID
+exports.getScheduleById = async (req, res) => {
+  try {
+    const schedule = await Schedule.findById(req.params.id)
+      .populate("deviceId", "name description")
+      .populate("advertisementIds", "name description videoUrl orientation");
 
-  //get schedule by id populate the device and advertisement
-  exports.getScheduleById = async (req, res) => {
-    try {
-      const schedule = await Schedule.findById(req.params.id)
-        .populate("deviceId", "name description")
-        .populate("advertisementIds", "name description videoUrl orientation");
-  
-      if (!schedule) {
-        return res.status(404).json({
-          success: false,
-          message: "Schedule not found",
-        });
-      }
-  
-      res.status(200).json({
-        success: true,
-        data: schedule,
-      });
-    } catch (error) {
-      res.status(500).json({
+    if (!schedule) {
+      return res.status(404).json({
         success: false,
-        message: error.message,
+        message: "Schedule not found",
       });
     }
-  };
-  
-  
+
+    res.status(200).json({
+      success: true,
+      data: schedule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
