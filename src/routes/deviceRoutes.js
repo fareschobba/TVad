@@ -9,7 +9,8 @@ const {
   deleteDevice,
   pairDevice,
   undeleteDevice,
-  getDeviceById
+  getDeviceById,
+  unpair
 } = require('../controllers/deviceController');
 
 const router = express.Router();
@@ -21,6 +22,8 @@ router.get('/search', getDeviceByNameOrId);
 
 //new add
 router.patch('/:id/isPaired', pairDevice);
+router.patch('/:id/unpair', unpair);
+
 
 // Protected routes (require authentication)
 router.use(protect);
