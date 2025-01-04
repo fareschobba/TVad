@@ -60,22 +60,6 @@ mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
 });
 
-// Socket.IO connection handler
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-
-  // Handle custom events from the client
-  socket.on('message', (data) => {
-    console.log('Message received:', data);
-    // Emit an acknowledgment or broadcast to all clients
-    io.emit('message', `Server received: ${data}`);
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log('A user disconnected:', socket.id);
-  });
-});
 
 app.get("/", (req, res) => res.send("Express with Socket.IO"));
 
@@ -111,6 +95,4 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-module.exports = (req, res) => {
-  app(req, res); // Pass requests directly to the Express app
-};
+module.exports = { app, io };
