@@ -181,11 +181,35 @@ const undeleteAdvertisement = async (req, res) => {
   }
 };
 
+// Delete advertisement by ID
+const deleteAdvertisementById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const advertisement = await Advertisement.findByIdAndDelete(id);
+    if (!advertisement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement not found'
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Advertisement deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createAdvertisement,
   getAllAdvertisements,
   updateAdvertisement,
   deleteAdvertisement,
   undeleteAdvertisement,
-  getAdvertisementById
+  getAdvertisementById,
+  deleteAdvertisementById
 };

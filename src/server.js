@@ -33,12 +33,9 @@ app.use('/api/devices', deviceRoutes);
 app.use('/api/advertisements', advertisementRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
-    // Handle custom events from the client
-   
+
 // Database connection
 const mongooseOptions = {
-  // useNewUrlParser: true,
-  // useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
   socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
 };
@@ -60,7 +57,7 @@ mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
 });
 
-
+// Root route
 app.get("/", (req, res) => res.send("Express with Socket.IO"));
 
 // Basic error handler
@@ -95,4 +92,5 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-module.exports = () => ({ app, server });
+// Export the app directly
+module.exports = app;

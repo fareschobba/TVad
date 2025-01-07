@@ -10,7 +10,8 @@ const {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair
+  unpair,
+  deleteDeviceById
 } = require('../controllers/deviceController');
 
 const router = express.Router();
@@ -32,6 +33,7 @@ router.put('/:id', updateDevice);
 router.delete('/:id', deleteDevice);
 router.get('/:id', getDeviceById);
 router.delete('/undeleteDevice/:id', undeleteDevice);
+router.delete('/deleteById/:id', deleteDeviceById);
 
 
 module.exports = router;

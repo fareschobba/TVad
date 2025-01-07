@@ -321,6 +321,29 @@ const getDeviceById = async (req, res) => {
   }
 };
 
+// Delete device by ID
+const deleteDeviceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const device = await Device.findByIdAndDelete(id);
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: 'Device deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createDevice,
   getAllDevices,
@@ -330,5 +353,6 @@ module.exports = {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair
+  unpair,
+  deleteDeviceById
 };
