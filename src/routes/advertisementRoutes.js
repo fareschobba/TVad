@@ -6,7 +6,8 @@ const {
   updateAdvertisement,
   deleteAdvertisement,
   undeleteAdvertisement,
-  getAdvertisementById
+  getAdvertisementById,
+  deleteAdvertisementById
 } = require('../controllers/advertisementController');
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.put('/:id', protect, updateAdvertisement);
 router.delete('/:id', protect, deleteAdvertisement);
 router.get('/:id',  getAdvertisementById);
 router.delete('/undelete/:id', protect, undeleteAdvertisement);
+router.delete('/deleteById/:id', protect, deleteAdvertisementById);
 
 module.exports = router;
