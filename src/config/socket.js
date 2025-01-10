@@ -31,7 +31,7 @@ module.exports = {
         console.log("Data:", data);
 
         // Broadcast the update to all clients (including the web page)
-        io.emit("currentAd", data);
+        io.emit("currentAdWeb", data);
       });
 
       // Listen for "TVState/{deviceId}" event
@@ -41,7 +41,7 @@ module.exports = {
         console.log("Data:", data);
 
         // Broadcast the update to all clients
-        io.emit("TVState", data);
+        io.emit("TVStateWeb", data);
       });
 
       // Listen for "SystemState/{deviceId}" event
@@ -51,7 +51,7 @@ module.exports = {
         console.log("Data:", data);
 
         // Broadcast the update to all clients
-        io.emit("SystemState", data);
+        io.emit("SystemStateWeb", data);
       });
 
       // Listen for "AppState/{deviceId}" event
@@ -61,7 +61,7 @@ module.exports = {
         console.log("Data:", data);
 
         // Broadcast the update to all clients
-        io.emit("AppState", data);
+        io.emit("AppStateWeb", data);
       });
     });
 
