@@ -25,31 +25,43 @@ module.exports = {
       });
 
       // Listen for "currentAd/{deviceId}" event
-      socket.on("currentAd/:deviceId", (data) => {
+      socket.on("currentAd", (data) => {
         const deviceId = data.deviceId;
-        socket.emit(`currentAd/${deviceId}`, data);
-        console.log(data);
+        console.log("Received currentAd event for device:", deviceId);
+        console.log("Data:", data);
+
+        // Broadcast the update to all clients (including the web page)
+        io.emit("currentAd", data);
       });
 
       // Listen for "TVState/{deviceId}" event
-      socket.on("TVState/:deviceId", (data) => {
+      socket.on("TVState", (data) => {
         const deviceId = data.deviceId;
         console.log("Received TVState event for device:", deviceId);
         console.log("Data:", data);
+
+        // Broadcast the update to all clients
+        io.emit("TVState", data);
       });
 
       // Listen for "SystemState/{deviceId}" event
-      socket.on("SystemState/:deviceId", (data) => {
+      socket.on("SystemState", (data) => {
         const deviceId = data.deviceId;
         console.log("Received SystemState event for device:", deviceId);
         console.log("Data:", data);
+
+        // Broadcast the update to all clients
+        io.emit("SystemState", data);
       });
 
       // Listen for "AppState/{deviceId}" event
-      socket.on("AppState/:deviceId", (data) => {
+      socket.on("AppState", (data) => {
         const deviceId = data.deviceId;
         console.log("Received AppState event for device:", deviceId);
         console.log("Data:", data);
+
+        // Broadcast the update to all clients
+        io.emit("AppState", data);
       });
     });
 
