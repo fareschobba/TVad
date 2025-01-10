@@ -18,9 +18,8 @@ module.exports = {
         console.log('Client disconnected:', socket.id);
       });
 
-       // Listen for other events (e.g., "currentAd/{deviceId}")
-     socket.on("currentAd/:deviceId", (data) => {
-      console.log("Received currentAd event:", data);
+     socket.on("message", (data) => {
+      console.log(data);
   });
     });
 
