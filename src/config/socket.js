@@ -18,12 +18,16 @@ module.exports = {
         console.log('Client disconnected:', socket.id);
       });
 
-     socket.on("message", (data) => {
-      console.log(data);
-  });
+      socket.on("message", (data) => {
+        console.log(data);
+      });
+
+      socket.on("currentAd/SLQHX", (data) => {
+        console.log(data);
+      });
     });
 
-    
+
 
     return io;
   },
