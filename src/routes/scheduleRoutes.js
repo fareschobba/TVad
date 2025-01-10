@@ -8,7 +8,8 @@ const {
   deleteSchedule,
   archiveSchedule,
   getArchivedSchedules,
-  getScheduleById
+  getScheduleById,
+  deleteScheduleById
 } = require('../controllers/scheduleController');
 
 const router = express.Router();
@@ -24,5 +25,6 @@ router.get('/:id', protect, getScheduleById);
 router.delete('/:id', protect, deleteSchedule);
 router.put('/archives/:id',protect,archiveSchedule);
 router.get('/archives',protect,getArchivedSchedules);
+router.delete('/deleteById/:id', protect, deleteScheduleById);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+
 const socketIO = require('socket.io');
 const { emit } = require('../server');
 
@@ -23,33 +24,34 @@ module.exports = {
         console.log(data);
       });
 
-      socket.on("currentAd/SLQHX", (data) => {
-        socket.emit("currentAd/SLQHX",data);
+      // Listen for "currentAd/{deviceId}" event
+      socket.on("currentAd/:deviceId", (data) => {
+        const deviceId = data.deviceId;
+        socket.emit(`currentAd/${deviceId}`, data);
         console.log(data);
       });
 
       // Listen for "TVState/{deviceId}" event
-    socket.on("TVState/SLQHX", (data) => {
-      console.log("Received TVState event for device:", data.deviceId);
-      console.log("Data:", data);
-      
-  });
+      socket.on("TVState/:deviceId", (data) => {
+        const deviceId = data.deviceId;
+        console.log("Received TVState event for device:", deviceId);
+        console.log("Data:", data);
+      });
 
-  // Listen for "SystemState/{deviceId}" event
-  socket.on("SystemState/SLQHX", (data) => {
-      console.log("Received SystemState event for device:", data.deviceId);
-      console.log("Data:", data);
-  });
+      // Listen for "SystemState/{deviceId}" event
+      socket.on("SystemState/:deviceId", (data) => {
+        const deviceId = data.deviceId;
+        console.log("Received SystemState event for device:", deviceId);
+        console.log("Data:", data);
+      });
 
-  // Listen for "AppState/{deviceId}" event
-  socket.on("AppState/SLQHX", (data) => {
-      console.log("Received AppState event for device:", data.deviceId);
-      console.log("Data:", data);
-      
-  });
+      // Listen for "AppState/{deviceId}" event
+      socket.on("AppState/:deviceId", (data) => {
+        const deviceId = data.deviceId;
+        console.log("Received AppState event for device:", deviceId);
+        console.log("Data:", data);
+      });
     });
-
-
 
     return io;
   },
