@@ -42,7 +42,7 @@ exports.getAllSchedules = async (req, res) => {
   try {
     const schedules = await Schedule.find({ isDeleted: false })
       .populate("deviceId", "name description isDeleted")
-      .populate("advertisementIds", "name description videoUrl orientation");
+      .populate("advertisementIds", "name description videoUrl orientation isDeleted");
 
     res.status(200).json({
       success: true,
@@ -432,7 +432,7 @@ exports.getScheduleById = async (req, res) => {
   try {
     const schedule = await Schedule.findById(req.params.id)
       .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation");
+      .populate("advertisementIds", "name description videoUrl orientation isDeleted");
 
     if (!schedule) {
       return res.status(404).json({
@@ -444,6 +444,30 @@ exports.getScheduleById = async (req, res) => {
     res.status(200).json({
       success: true,
       data: schedule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//delete schedule by id
+exports.deleteScheduleById = async (req, res) => {
+  try {
+    const schedule = await Schedule.findByIdAndDelete(req.params.id);
+
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Schedule deleted successfully",
     });
   } catch (error) {
     res.status(500).json({
