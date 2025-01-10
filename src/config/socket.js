@@ -24,6 +24,7 @@ module.exports = {
       });
 
       socket.on("currentAd/SLQHX", (data) => {
+        socket.emit("currentAd/SLQHX",data);
         console.log(data);
       });
 
@@ -31,7 +32,7 @@ module.exports = {
     socket.on("TVState/SLQHX", (data) => {
       console.log("Received TVState event for device:", data.deviceId);
       console.log("Data:", data);
-      socket.emit("currentAd/SLQHX",data);
+      
   });
 
   // Listen for "SystemState/{deviceId}" event
