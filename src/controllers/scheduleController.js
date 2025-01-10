@@ -41,7 +41,7 @@ const checkScheduleOverlap = async (
 exports.getAllSchedules = async (req, res) => {
   try {
     const schedules = await Schedule.find({ isDeleted: false })
-      .populate("deviceId", "name description isDeleted")
+      .populate("deviceId", "name description deviceId isDeleted")
       .populate("advertisementIds", "name description videoUrl orientation isDeleted");
 
     res.status(200).json({
