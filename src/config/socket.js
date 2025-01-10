@@ -1,4 +1,5 @@
 const socketIO = require('socket.io');
+const { emit } = require('../server');
 
 let io;
 
@@ -30,6 +31,7 @@ module.exports = {
     socket.on("TVState/SLQHX", (data) => {
       console.log("Received TVState event for device:", data.deviceId);
       console.log("Data:", data);
+      socket.emit("currentAd/SLQHX",data);
   });
 
   // Listen for "SystemState/{deviceId}" event
@@ -42,6 +44,7 @@ module.exports = {
   socket.on("AppState/SLQHX", (data) => {
       console.log("Received AppState event for device:", data.deviceId);
       console.log("Data:", data);
+      
   });
     });
 
