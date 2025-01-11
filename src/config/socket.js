@@ -76,6 +76,16 @@ module.exports = {
         });
 
       });
+
+      // Listen for CheckStates event
+      socket.on("ReturnState", (data) => {
+
+        socket.emit(`ReturnStateWeb`, data);
+
+        console.log(`ReturnStateWeb data: ${data}`);
+
+      });
+      
     });
 
     return io;
