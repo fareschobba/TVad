@@ -63,6 +63,19 @@ module.exports = {
         // Broadcast the update to all clients
         io.emit("AppStateWeb", data);
       });
+
+      // Listen for CheckStates event
+      socket.on("CheckStates", (data) => {
+
+        data.devices.forEach((deviceId) => {
+          // Emit a "CheckState/$deviceId" event for each code
+
+          socket.emit(`CheckState/${deviceId}`, "CheckState");
+
+          console.log(`Emitted event: CheckState/${deviceId}`);
+        });
+
+      });
     });
 
     return io;
