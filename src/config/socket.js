@@ -65,24 +65,24 @@ module.exports = {
       });
 
       // Listen for CheckStates event
-      socket.on("CheckStates", (data) => {
+      socket.on("checkStates", (data) => {
 
         data.devices.forEach((deviceId) => {
           // Emit a "CheckState/$deviceId" event for each code
 
-          socket.emit(`CheckState/${deviceId}`, "CheckState");
+          socket.emit(`checkState/${deviceId}`, "checkState");
 
-          console.log(`Emitted event: CheckState/${deviceId}`);
+          console.log(`Emitted event: checkState/${deviceId}`);
         });
 
       });
 
       // Listen for CheckStates event
-      socket.on("ReturnState", (data) => {
+      socket.on("returnState", (data) => {
 
-        socket.emit(`ReturnStateWeb`, data);
+        socket.emit(`returnStateWeb`, data);
 
-        console.log(`ReturnStateWeb data: ${data}`);
+        console.log(`returnStateWeb data: ${data}`);
 
       });
       
