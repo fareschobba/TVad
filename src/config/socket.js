@@ -22,6 +22,7 @@ module.exports = {
 
       socket.on("message", (data) => {
         console.log(data);
+
       });
 
       // Listen for "currentAd/{deviceId}" event
@@ -70,7 +71,7 @@ module.exports = {
         data.devices.forEach((deviceId) => {
           // Emit a "CheckState/$deviceId" event for each code
 
-          socket.emit(`checkState/${deviceId}`, "checkState");
+          io.emit(`checkState/${deviceId}`, "checkState");
 
           console.log(`Emitted event: checkState/${deviceId}`);
         });
@@ -80,12 +81,12 @@ module.exports = {
       // Listen for CheckStates event
       socket.on("returnState", (data) => {
 
-        socket.emit(`returnStateWeb`, data);
+        io.emit(`returnStateWeb`, data);
 
         console.log(`returnStateWeb data: ${data}`);
 
       });
-      
+
     });
 
     return io;
