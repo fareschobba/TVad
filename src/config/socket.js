@@ -83,7 +83,7 @@ module.exports = {
 
         io.emit(`returnStateWeb`, data);
 
-        console.log(`returnStateWeb data: ${data}`);
+        console.log("returnStateWeb data: ",data);
 
       });
 
