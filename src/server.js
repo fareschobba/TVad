@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
-
+const path = require('path'); // Import path module
 // Load environment variables
 dotenv.config();
 
@@ -14,6 +14,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Serve static files (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -33,6 +35,9 @@ app.use('/api/devices', deviceRoutes);
 app.use('/api/advertisements', advertisementRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
+app.get('/change-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'change-password.html'));
+});
 
 // Database connection
 const mongooseOptions = {
