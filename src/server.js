@@ -4,16 +4,41 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 
 // Load environment variables
 dotenv.config();
 
+// Cleanup function
+async function cleanupAllTempFiles() {
+  const uploadsDir = path.join(__dirname, 'uploads');
+  const youtubeDir = path.join(uploadsDir, 'youtube');
+
+  try {
+    // Clean main uploads directory
+    await fs.rm(uploadsDir, { recursive: true, force: true });
+    await fs.mkdir(uploadsDir, { recursive: true });
+    
+    // Recreate youtube directory
+    await fs.mkdir(youtubeDir, { recursive: true });
+    
+    console.log('Successfully cleaned up all temporary files:', new Date().toISOString());
+  } catch (err) {
+    console.error('Error during cleanup:', err);
+  }
+}
+
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+fs.mkdir(uploadsDir, { recursive: true })
+  .catch(err => console.error('Error creating uploads directory:', err));
+
+// Schedule cleanup every 24 hours
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+setInterval(cleanupAllTempFiles, TWENTY_FOUR_HOURS);
+
+// Run initial cleanup on server start
+cleanupAllTempFiles();
 
 // Initialize express app
 const app = express();
@@ -38,6 +63,7 @@ const advertisementRoutes = require('./routes/advertisementRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
+
 
 // Use routes
 app.use('/api/devices', deviceRoutes);

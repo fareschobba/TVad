@@ -19,6 +19,30 @@ class YouTubeService {
     }
   }
 
+  async cleanupTempFiles() {
+    try {
+      const files = await fs.promises.readdir(this.tempDir);
+      const now = Date.now();
+      const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+
+      for (const file of files) {
+        const filePath = path.join(this.tempDir, file);
+        try {
+          const stats = await fs.promises.stat(filePath);
+          // Delete files older than 24 hours
+          if (stats.ctimeMs < twentyFourHoursAgo) {
+            await fs.promises.unlink(filePath);
+            console.log(`Cleaned up old temp file: ${filePath}`);
+          }
+        } catch (err) {
+          console.error(`Error checking file ${filePath}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error('Error cleaning up temp directory:', err);
+    }
+  }
+
   async validateYouTubeUrl(url) {
     try {
       return ytdl.validateURL(url);
@@ -54,6 +78,7 @@ class YouTubeService {
   }
 
   async downloadVideo(url, quality = 'highest') {
+    let filePath = null;
     try {
       if (!ytdl.validateURL(url)) {
         throw new Error('Invalid YouTube URL');
@@ -62,7 +87,7 @@ class YouTubeService {
       const info = await ytdl.getInfo(url, options);
       const videoTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '');
       const fileName = `${Date.now()}-${videoTitle}.mp4`;
-      const filePath = path.join(this.tempDir, fileName);
+      filePath = path.join(this.tempDir, fileName);
 
       return new Promise((resolve, reject) => {
         const video = ytdl(url, {
@@ -71,15 +96,23 @@ class YouTubeService {
           filter: 'audioandvideo'
         });
 
-        video.on('error', (error) => {
-          console.error('Download error:', error);
+        video.on('error', async (error) => {
+          if (filePath) {
+            await fs.promises.unlink(filePath).catch(err => 
+              console.error('Error deleting failed download:', err)
+            );
+          }
           reject(new Error(`Download failed: ${error.message}`));
         });
 
         const writeStream = fs.createWriteStream(filePath);
 
-        writeStream.on('error', (error) => {
-          console.error('Write stream error:', error);
+        writeStream.on('error', async (error) => {
+          if (filePath) {
+            await fs.promises.unlink(filePath).catch(err => 
+              console.error('Error deleting failed write:', err)
+            );
+          }
           reject(new Error(`File write failed: ${error.message}`));
         });
 
@@ -93,9 +126,10 @@ class YouTubeService {
               'video/mp4'
             );
 
-            fs.unlink(filePath, (err) => {
-              if (err) console.error('Error deleting temp file:', err);
-            });
+            // Ensure cleanup happens
+            await fs.promises.unlink(filePath).catch(err => 
+              console.error('Error deleting temp file after upload:', err)
+            );
 
             resolve({
               title: videoTitle,
@@ -103,18 +137,38 @@ class YouTubeService {
               ...result
             });
           } catch (error) {
-            console.error('Upload error:', error);
+            // Cleanup on upload error
+            if (filePath) {
+              await fs.promises.unlink(filePath).catch(err => 
+                console.error('Error deleting failed upload:', err)
+              );
+            }
             reject(error);
           }
         });
       });
     } catch (error) {
-      console.error('Download setup error:', error);
+      // Cleanup on any other error
+      if (filePath) {
+        await fs.promises.unlink(filePath).catch(err => 
+          console.error('Error deleting on setup error:', err)
+        );
+      }
       throw new Error(`Download failed: ${error.message}`);
     }
   }
 }
 
-module.exports = new YouTubeService();
+// Create instance with automatic cleanup
+const service = new YouTubeService();
+
+// Run cleanup every 24 hours
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+setInterval(() => service.cleanupTempFiles(), TWENTY_FOUR_HOURS);
+
+// Run initial cleanup when service starts
+service.cleanupTempFiles();
+
+module.exports = service;
 
 
