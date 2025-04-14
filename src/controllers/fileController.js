@@ -24,39 +24,41 @@ exports.uploadFile = async (req, res) => {
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    // Double-check file type (additional security layer)
-    if (!isVideoFile(req.file.mimetype)) {
-      await unlinkAsync(req.file.path); // Clean up invalid file
-      return res.status(400).json({
-        error: 'Invalid file type',
-        message: 'Only video files are allowed'
+    try {
+      // Double-check file type (additional security layer)
+      if (!isVideoFile(req.file.mimetype)) {
+        await unlinkAsync(req.file.path); // Clean up invalid file
+        return res.status(400).json({
+          error: 'Invalid file type',
+          message: 'Only video files are allowed'
+        });
+      }
+
+      const result = await b2Service.uploadFile(
+        req.file.path,
+        req.file.originalname,
+        req.file.mimetype
+      );
+
+      // Ensure cleanup happens after successful upload
+      await unlinkAsync(req.file.path);
+
+      res.status(200).json({
+        success: true,
+        file: result
       });
+
+    } catch (error) {
+      // Ensure cleanup happens even if upload fails
+      if (req.file?.path) {
+        await unlinkAsync(req.file.path).catch(err => 
+          console.error('Failed to cleanup file:', req.file.path, err)
+        );
+      }
+      throw error; // Re-throw to be caught by outer catch
     }
-
-    const result = await b2Service.uploadFile(
-      req.file.path,
-      req.file.originalname,
-      req.file.mimetype
-    );
-
-    // Clean up the temporary file
-    await unlinkAsync(req.file.path);
-
-    res.status(200).json({
-      success: true,
-      file: result
-    });
 
   } catch (error) {
-    // Clean up the temporary file in case of error
-    if (req.file && req.file.path) {
-      try {
-        await unlinkAsync(req.file.path);
-      } catch (cleanupError) {
-        console.error('Error cleaning up temporary file:', cleanupError);
-      }
-    }
-
     console.error('Error uploading file:', error);
     res.status(500).json({
       error: 'Failed to upload file',
@@ -182,4 +184,5 @@ exports.getDownloadUrl = async (req, res) => {
     });
   }
 };
+
 
