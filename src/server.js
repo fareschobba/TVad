@@ -3,9 +3,17 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
-const path = require('path'); // Import path module
+const path = require('path');
+const fs = require('fs');
+
 // Load environment variables
 dotenv.config();
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Initialize express app
 const app = express();
@@ -29,20 +37,29 @@ const deviceRoutes = require('./routes/deviceRoutes');
 const advertisementRoutes = require('./routes/advertisementRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const authRoutes = require('./routes/authRoutes');
+const fileRoutes = require('./routes/fileRoutes');
 
 // Use routes
 app.use('/api/devices', deviceRoutes);
 app.use('/api/advertisements', advertisementRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/files', fileRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Change password route
 app.get('/change-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'change-password.html'));
 });
 
 // Database connection
 const mongooseOptions = {
-  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-  socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
 };
 
 mongoose.connect(process.env.MONGODB_URI, mongooseOptions)
@@ -67,7 +84,7 @@ app.get("/", (req, res) => res.send("Express with Socket.IO"));
 
 // Basic error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled error:', err);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -78,7 +95,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found',
+    message: 'Route not found'
   });
 });
 
@@ -97,5 +114,10 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-// Export the app directly
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  process.exit(1);
+});
+
 module.exports = app;
