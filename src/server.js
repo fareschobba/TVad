@@ -63,7 +63,7 @@ const advertisementRoutes = require('./routes/advertisementRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
-
+const userRoutes = require('./routes/userRoutes');
 
 // Use routes
 app.use('/api/devices', deviceRoutes);
@@ -71,6 +71,7 @@ app.use('/api/advertisements', advertisementRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

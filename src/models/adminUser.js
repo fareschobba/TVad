@@ -8,10 +8,27 @@ const adminUserSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
   password: {
     type: String,
     required: true,
     select: false,
+  },
+  role: {
+    type: String,
+    enum: ['admin', 'client'],
+    default: 'client'
+  },
+  phoneNumber: {
+    type: String,
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   },
   createdAt: {
     type: Date,
@@ -20,6 +37,10 @@ const adminUserSchema = new mongoose.Schema({
   isDeleted: {
     type: Boolean,
     default: false,
+  },
+  forcePasswordChange: {
+    type: Boolean,
+    default: false
   }
 });
 
