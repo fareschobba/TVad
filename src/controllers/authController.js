@@ -27,22 +27,32 @@ const login = async (req, res) => {
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
-        message: 'Incorrect username or password',
+        message: 'Nom d\'utilisateur ou mot de passe incorrect'
       });
     }
 
-    // 3. Generate token
+    // Check if password change is required
+    if (user.forcePasswordChange) {
+      return res.status(200).json({
+        success: true,
+        token: generateToken(user._id),
+        forcePasswordChange: true,
+        message: 'Veuillez changer votre mot de passe'
+      });
+    }
+
     const token = generateToken(user._id);
 
     res.status(200).json({
       success: true,
       token,
+      forcePasswordChange: false
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error logging in',
-      error: error.message,
+      message: 'Erreur lors de la connexion',
+      error: error.message
     });
   }
 };

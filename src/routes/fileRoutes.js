@@ -1,31 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const fileController = require('../controllers/fileController');
-const youtubeController = require('../controllers/youtubeController');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { protect } = require('../middleware/authMiddleware');
+const fileController = require('../controllers/fileController');
 
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Define allowed video MIME types
-const ALLOWED_VIDEO_TYPES = [
-  'video/mp4',
-  'video/x-matroska',  // MKV
-  'video/x-msvideo',   // AVI
-  'video/quicktime',   // MOV
-  'video/webm',        // WebM
-  'video/x-flv'        // FLV
-];
-
-// Configure multer for file uploads with file type validation
+// Configure multer for video uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadsDir);
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -33,45 +15,28 @@ const storage = multer.diskStorage({
   }
 });
 
-const fileFilter = (req, file, cb) => {
-  if (ALLOWED_VIDEO_TYPES.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only video files are allowed.'), false);
-  }
-};
-
 const upload = multer({ 
   storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 50MB limit
+  fileFilter: (req, file, cb) => {
+    // Skip file validation if YouTube URL is provided
+    if (req.body.youtubeUrl) {
+      return cb(null, false);
+    }
+    
+    if (isVideoFile(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only video files are allowed.'), false);
+    }
   }
 });
 
-// File routes with error handling
-router.post('/upload', (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({
-          error: 'File size limit exceeded',
-          message: 'Maximum file size allowed is 50MB'
-        });
-      }
-      return res.status(400).json({
-        error: 'Upload error',
-        message: err.message
-      });
-    } else if (err) {
-      return res.status(400).json({
-        error: 'Invalid file',
-        message: err.message
-      });
-    }
-    next();
-  });
-}, fileController.uploadFile);
+// File upload route that handles both direct files and YouTube URLs
+router.post('/upload', 
+  protect,
+  upload.single('video'),
+  fileController.uploadFile
+);
 
 router.get('/', fileController.listFiles);
 router.get('/:fileId/content', fileController.getFileContent);
@@ -80,12 +45,5 @@ router.delete('/:fileId', fileController.deleteFile);
 router.get('/:fileId/info', fileController.getFileInfo);
 router.get('/:fileId/download-url', fileController.getDownloadUrl);
 
-// Remove these YouTube routes
-router.post('/youtube/info', youtubeController.getVideoInfo);
-router.post('/youtube/download', youtubeController.downloadVideo);
-
 module.exports = router;
-
-
-
 

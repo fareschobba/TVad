@@ -1,8 +1,136 @@
 const b2Service = require('../services/b2.service');
+const youtubeService = require('../services/youtube.service');
 const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 const unlinkAsync = promisify(fs.unlink);
+
+exports.uploadFile = async (req, res) => {
+  try {
+    const { youtubeUrl } = req.body;
+
+    // Determine upload method based on input
+    if (youtubeUrl) {
+      // YouTube URL upload
+      await handleYoutubeUpload(req, res);
+    } else if (req.file) {
+      // Direct file upload
+      await handleDirectFileUpload(req, res);
+    } else {
+      return res.status(400).json({ 
+        error: 'Invalid request', 
+        message: 'Either a file or YouTube URL must be provided' 
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in file upload:', error);
+    res.status(500).json({
+      error: 'Upload failed',
+      message: error.message
+    });
+  }
+};
+
+async function handleDirectFileUpload(req, res) {
+  try {
+    // Double-check file type (additional security layer)
+    if (!isVideoFile(req.file.mimetype)) {
+      await unlinkAsync(req.file.path); // Clean up invalid file
+      return res.status(400).json({
+        error: 'Invalid file type',
+        message: 'Only video files are allowed'
+      });
+    }
+
+    const result = await b2Service.uploadFile(
+      req.file.path,
+      req.file.originalname,
+      req.file.mimetype
+    );
+
+    // Create initial advertisement record
+    const initialAdvertisement = await createAdvertisementRecord({
+      name: req.file.originalname,
+      videoUrl: result.url,
+      fileName: result.fileName,
+      fileId: result.fileId,
+      userId: req.user._id,
+      uploadType: 'direct'
+    });
+
+    // Ensure cleanup happens after successful upload
+    await unlinkAsync(req.file.path);
+
+    res.status(200).json({
+      success: true,
+      message: 'File uploaded successfully',
+      data: {
+        advertisementId: initialAdvertisement._id,
+        fileInfo: result
+      }
+    });
+  } catch (error) {
+    // Ensure cleanup happens even if upload fails
+    if (req.file?.path) {
+      await unlinkAsync(req.file.path).catch(err => 
+        console.error('Failed to cleanup file:', req.file.path, err)
+      );
+    }
+    throw error;
+  }
+}
+
+async function handleYoutubeUpload(req, res) {
+  const { youtubeUrl, quality = 'highest' } = req.body;
+
+  // Validate YouTube URL
+  if (!await youtubeService.validateYouTubeUrl(youtubeUrl)) {
+    return res.status(400).json({
+      error: 'Invalid URL',
+      message: 'Please provide a valid YouTube URL'
+    });
+  }
+
+  // Download and upload video
+  const result = await youtubeService.downloadVideo(youtubeUrl, quality);
+
+  // Create initial advertisement record
+  const initialAdvertisement = await createAdvertisementRecord({
+    name: result.title,
+    videoUrl: result.url,
+    fileName: result.fileName,
+    fileId: result.fileId,
+    userId: req.user._id,
+    uploadType: 'youtube',
+    sourceUrl: youtubeUrl
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'YouTube video processed and uploaded successfully',
+    data: {
+      advertisementId: initialAdvertisement._id,
+      fileInfo: result
+    }
+  });
+}
+
+async function createAdvertisementRecord(data) {
+  return await Advertisement.create({
+    name: data.name,
+    description: 'Pending description', // Placeholder
+    videoUrl: data.videoUrl,
+    orientation: 'landscape', // Default orientation
+    userId: data.userId,
+    fileName: data.fileName,
+    fileId: data.fileId,
+    status: 'pending',
+    uploadType: data.uploadType,
+    sourceUrl: data.sourceUrl, // Will be undefined for direct uploads
+    uploadDate: new Date()
+  });
+}
 
 // Helper function to validate video file
 const isVideoFile = (mimetype) => {
@@ -13,58 +141,9 @@ const isVideoFile = (mimetype) => {
     'video/x-msvideo',   // AVI
     'video/quicktime',   // MOV
     'video/webm',        // WebM
-    'video/x-flv'   
+    'video/x-flv'        // FLV
   ];
   return validVideoTypes.includes(mimetype);
-};
-
-exports.uploadFile = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file provided' });
-    }
-
-    try {
-      // Double-check file type (additional security layer)
-      if (!isVideoFile(req.file.mimetype)) {
-        await unlinkAsync(req.file.path); // Clean up invalid file
-        return res.status(400).json({
-          error: 'Invalid file type',
-          message: 'Only video files are allowed'
-        });
-      }
-
-      const result = await b2Service.uploadFile(
-        req.file.path,
-        req.file.originalname,
-        req.file.mimetype
-      );
-
-      // Ensure cleanup happens after successful upload
-      await unlinkAsync(req.file.path);
-
-      res.status(200).json({
-        success: true,
-        file: result
-      });
-
-    } catch (error) {
-      // Ensure cleanup happens even if upload fails
-      if (req.file?.path) {
-        await unlinkAsync(req.file.path).catch(err => 
-          console.error('Failed to cleanup file:', req.file.path, err)
-        );
-      }
-      throw error; // Re-throw to be caught by outer catch
-    }
-
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    res.status(500).json({
-      error: 'Failed to upload file',
-      message: error.message
-    });
-  }
 };
 
 exports.listFiles = async (req, res) => {
@@ -184,5 +263,7 @@ exports.getDownloadUrl = async (req, res) => {
     });
   }
 };
+
+
 
 
