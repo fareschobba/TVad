@@ -1,0 +1,1323 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TV Advertisement Management API",
+    "version": "1.0.0",
+    "description": "Complete API documentation for TV Advertisement Management System"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" }
+        }
+      }
+    },
+    "/api/auth/setup": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Create initial admin account",
+        "responses": {
+          "201": { "description": "Admin account created successfully" }
+        }
+      }
+    },
+    "/api/auth/change-password": {
+      "put": {
+        "tags": ["Authentication"],
+        "summary": "Change password",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Password changed successfully" }
+        }
+      }
+    },
+    "/api/devices": {
+      "get": {
+        "tags": ["Devices"],
+        "summary": "Get all devices",
+        "responses": {
+          "200": { "description": "List of all devices" }
+        }
+      },
+      "post": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Create new device",
+        "responses": {
+          "201": { "description": "Device created successfully" }
+        }
+      }
+    },
+    "/api/devices/search": {
+      "get": {
+        "tags": ["Devices"],
+        "summary": "Search devices by name or ID",
+        "responses": {
+          "200": { "description": "Search results" }
+        }
+      }
+    },
+    "/api/devices/{id}": {
+      "get": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Get device by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device details" }
+        }
+      },
+      "put": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update device",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device updated successfully" }
+        }
+      },
+      "delete": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Delete device",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device deleted successfully" }
+        }
+      }
+    },
+    "/api/devices/{id}/isPaired": {
+      "patch": {
+        "tags": ["Devices"],
+        "summary": "Pair device",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device paired successfully" }
+        }
+      }
+    },
+    "/api/devices/{id}/unpair": {
+      "patch": {
+        "tags": ["Devices"],
+        "summary": "Unpair device",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device unpaired successfully" }
+        }
+      }
+    },
+    "/api/devices/undeleteDevice/{id}": {
+      "delete": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Undelete device",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device undeleted successfully" }
+        }
+      }
+    },
+    "/api/devices/deleteById/{id}": {
+      "delete": {
+        "tags": ["Devices"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Delete device by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Device deleted successfully" }
+        }
+      }
+    },
+    "/api/advertisements": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get all advertisements",
+        "description": "Retrieves a list of all non-deleted advertisements. Requires admin privileges.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of advertisements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "videoUrl": { "type": "string" },
+                          "fileExists": { "type": "boolean" },
+                          "fileInfo": {
+                            "type": "object",
+                            "properties": {
+                              "contentType": { "type": "string" },
+                              "contentLength": { "type": "number" },
+                              "uploadTimestamp": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin" }
+        }
+      }
+    },
+    "/api/advertisements/{id}": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get advertisement by ID",
+        "description": "Retrieves a specific advertisement by its ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "videoUrl": { "type": "string" },
+                        "status": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Advertisement not found" }
+        }
+      }
+    },
+    "/api/advertisements/getAdvertisementsByuser/{userId}": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get advertisements by user ID",
+        "description": "Retrieves all advertisements associated with a specific user",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User's advertisements retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "videoUrl": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/advertisements/undelete/{id}": {
+      "delete": {
+        "tags": ["Advertisements"],
+        "summary": "Undelete advertisement",
+        "description": "Restores a previously deleted advertisement",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID to undelete"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Advertisement restored successfully" },
+          "404": { "description": "Advertisement not found" }
+        }
+      }
+    },
+    "/api/advertisements/{id}/updateAdsSimple": {
+      "patch": {
+        "tags": ["Advertisements"],
+        "summary": "Update advertisement (simple)",
+        "description": "Updates basic advertisement details without file upload",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "status": { "type": "string", "enum": ["pending", "active", "inactive"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Advertisement updated successfully" },
+          "400": { "description": "Invalid input data" }
+        }
+      }
+    },
+    "/api/advertisements/{advertisementId}/completeCreation": {
+      "post": {
+        "tags": ["Advertisements"],
+        "summary": "Complete advertisement creation",
+        "description": "Finalizes the creation process of an advertisement",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "advertisementId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Advertisement creation completed successfully" },
+          "404": { "description": "Advertisement not found" }
+        }
+      }
+    },
+    "/api/advertisements/{id}/updateAdsComplex": {
+      "put": {
+        "tags": ["Advertisements"],
+        "summary": "Update advertisement (complex)",
+        "description": "Updates advertisement details including video file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "video": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Video file to upload"
+                  },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Advertisement updated successfully" },
+          "400": { "description": "Invalid input or file type" },
+          "404": { "description": "Advertisement not found" }
+        }
+      }
+    },
+    "/api/advertisements/{advertisementId}": {
+      "delete": {
+        "tags": ["Advertisements"],
+        "summary": "Delete advertisement",
+        "description": "Marks an advertisement as deleted (soft delete)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "advertisementId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Advertisement ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Advertisement deleted successfully" },
+          "404": { "description": "Advertisement not found" }
+        }
+      }
+    },
+    "/api/schedules": {
+      "get": {
+        "tags": ["Schedules"],
+        "summary": "Get all schedules",
+        "responses": {
+          "200": { "description": "List of all schedules" }
+        }
+      },
+      "post": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Create new schedule",
+        "responses": {
+          "201": { "description": "Schedule created successfully" }
+        }
+      }
+    },
+    "/api/schedules/search": {
+      "get": {
+        "tags": ["Schedules"],
+        "summary": "Search schedules by filter",
+        "responses": {
+          "200": { "description": "Search results" }
+        }
+      }
+    },
+    "/api/schedules/{id}": {
+      "get": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Get schedule by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Schedule details" }
+        }
+      },
+      "put": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Update schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Schedule updated successfully" }
+        }
+      },
+      "delete": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Delete schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Schedule deleted successfully" }
+        }
+      }
+    },
+    "/api/schedules/archives/{id}": {
+      "put": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Archive schedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Schedule archived successfully" }
+        }
+      }
+    },
+    "/api/schedules/archives": {
+      "get": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Get archived schedules",
+        "responses": {
+          "200": { "description": "List of archived schedules" }
+        }
+      }
+    },
+    "/api/schedules/deleteById/{id}": {
+      "delete": {
+        "tags": ["Schedules"],
+        "security": [{ "bearerAuth": [] }],
+        "summary": "Delete schedule by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Schedule deleted successfully" }
+        }
+      }
+    },
+    "/api/files/upload": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Upload video file",
+        "description": "Upload a video file or provide a YouTube URL. Supports various video formats including MP4, MPEG, MKV, AVI, MOV, WebM, and FLV.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "video": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Video file to upload"
+                  },
+                  "youtubeUrl": {
+                    "type": "string",
+                    "description": "YouTube video URL (alternative to file upload)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "fileId": { "type": "string" },
+                    "fileName": { "type": "string" },
+                    "fileUrl": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input - File type not supported or invalid YouTube URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/files": {
+      "get": {
+        "tags": ["Files"],
+        "summary": "List all files",
+        "description": "Retrieves a list of all uploaded files with their metadata",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of files retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "fileId": { "type": "string" },
+                      "fileName": { "type": "string" },
+                      "contentType": { "type": "string" },
+                      "size": { "type": "number" },
+                      "uploadDate": { "type": "string", "format": "date-time" },
+                      "url": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/files/{fileId}/content": {
+      "get": {
+        "tags": ["Files"],
+        "summary": "Get file content",
+        "description": "Retrieves the content of a specific file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the file to retrieve"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content retrieved successfully",
+            "content": {
+              "video/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": { "description": "File not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      },
+      "put": {
+        "tags": ["Files"],
+        "summary": "Update file content",
+        "description": "Updates the content of an existing file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the file to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "New file content"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File content updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input or file type" },
+          "404": { "description": "File not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/files/{fileId}": {
+      "delete": {
+        "tags": ["Files"],
+        "summary": "Delete file",
+        "description": "Permanently deletes a file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the file to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "File not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/files/{fileId}/info": {
+      "get": {
+        "tags": ["Files"],
+        "summary": "Get file information",
+        "description": "Retrieves metadata information about a specific file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the file to get information about"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": { "type": "string" },
+                    "fileName": { "type": "string" },
+                    "contentType": { "type": "string" },
+                    "size": { "type": "number" },
+                    "uploadDate": { "type": "string", "format": "date-time" },
+                    "lastModified": { "type": "string", "format": "date-time" },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "duration": { "type": "number" },
+                        "resolution": { "type": "string" },
+                        "format": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "File not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/files/{fileId}/download-url": {
+      "get": {
+        "tags": ["Files"],
+        "summary": "Get file download URL",
+        "description": "Generates a temporary download URL for the file",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the file to generate download URL for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "downloadUrl": { "type": "string" },
+                    "expiresAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "File not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" }
+        }
+      }
+    },
+    "/api/users/Create-client": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create new client account",
+        "description": "Creates a new client account with auto-generated password. Only accessible by admin users.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "email", "phoneNumber"],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Unique username for the client",
+                    "example": "johndoe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Unique email address",
+                    "example": "john.doe@example.com"
+                  },
+                  "phoneNumber": {
+                    "type": "string",
+                    "description": "Contact phone number",
+                    "example": "+1234567890"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Client account created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input data" },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin" }
+        }
+      }
+    },
+    "/api/users/clients/{userId}/toggle-status": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Toggle user account status",
+        "description": "Activates or deactivates a user account. Only accessible by admin users.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the user to toggle status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "User not found" },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin" }
+        }
+      }
+    },
+    "/api/users/reset-account-by-admin": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Reset user account by admin",
+        "description": "Resets a user's account credentials. Only accessible by admin users.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email of the account to reset",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid email" },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/users/clients/{userId}/role": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Change user role",
+        "description": "Changes a user's role between 'admin' and 'client'. Only accessible by admin users.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the user to change role"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": ["admin", "client"],
+                    "description": "New role to assign",
+                    "example": "client"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": { "type": "string" },
+                        "username": { "type": "string" },
+                        "role": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid role" },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin or attempting to change own role" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get all users",
+        "description": "Retrieves a list of all non-deleted users. Only accessible by admin users.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Users retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "count": { "type": "integer" },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": { "type": "string" },
+                          "username": { "type": "string" },
+                          "email": { "type": "string" },
+                          "role": { "type": "string" },
+                          "phoneNumber": { "type": "string" },
+                          "isActive": { "type": "boolean" },
+                          "createdAt": { "type": "string", "format": "date-time" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "403": { "description": "Forbidden - User is not an admin" }
+        }
+      }
+    },
+    "/api/users/{userId}/videos": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user's videos",
+        "description": "Retrieves a user's profile information along with their associated videos.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID of the user to fetch videos for"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User and videos retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "_id": { "type": "string" },
+                            "username": { "type": "string" },
+                            "email": { "type": "string" },
+                            "role": { "type": "string" }
+                          }
+                        },
+                        "videos": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string" },
+                              "description": { "type": "string" },
+                              "videoUrl": { "type": "string" },
+                              "orientation": { "type": "string" },
+                              "createdAt": { "type": "string", "format": "date-time" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update user profile",
+        "description": "Allows a user to update their own profile information.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "New username"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "New email address"
+                  },
+                  "phoneNumber": {
+                    "type": "string",
+                    "description": "New phone number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input data" },
+          "401": { "description": "Unauthorized - Invalid or missing token" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/users/reset-account": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Reset user account",
+        "description": "Allows a user to reset their own account credentials.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email of the account to reset"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account reset initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid email" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check endpoint",
+        "responses": {
+          "200": {
+            "description": "System health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "timestamp": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+

@@ -1,7 +1,9 @@
 const Advertisement = require('../models/advertisement');
 const b2Service = require('../services/b2.service');
-const { unlinkAsync } = require('fs-extra');
-
+const fs = require('fs/promises');  // Change this line
+const { isVideoFile } = require('../utils/fileValidation');
+const youtubeService = require('../services/youtube.service');
+const unlinkAsync = fs.unlink;  // Add this line
 // // Create advertisement
 // const createAdvertisement = async (req, res) => {
 //   try {
@@ -46,10 +48,43 @@ const { unlinkAsync } = require('fs-extra');
 // Get all advertisements
 const getAllAdvertisements = async (req, res) => {
   try {
-    const advertisements = await Advertisement.find();
+    const advertisements = await Advertisement.find({ isDeleted: false })
+      .populate('userId', 'username email')
+      .lean();
+
+    // Check file existence for each advertisement
+    const advertisementsWithFileStatus = await Promise.all(
+      advertisements.map(async (ad) => {
+        if (ad.fileId) {
+          try {
+            const fileInfo = await b2Service.getFileInfo(ad.fileId);
+            return {
+              ...ad,
+              fileExists: true,
+              fileInfo: {
+                contentType: fileInfo.contentType,
+                contentLength: fileInfo.contentLength,
+                uploadTimestamp: fileInfo.uploadTimestamp
+              }
+            };
+          } catch (error) {
+            return {
+              ...ad,
+              fileExists: false,
+              fileError: 'File not found in storage'
+            };
+          }
+        }
+        return {
+          ...ad,
+          fileExists: false
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
-      data: advertisements
+      data: advertisementsWithFileStatus
     });
   } catch (error) {
     res.status(500).json({
@@ -113,7 +148,7 @@ const updateAdvertisementSimple = async (req, res) => {
 // Complex advertisement update (including video file)
 const updateAdvertisementComplex = async (req, res) => {
   try {
-    const { name, description, orientation } = req.body;
+    const { name, description, orientation, youtubeUrl } = req.body;
     const advertisementId = req.params.id;
 
     // Find the existing advertisement
@@ -130,37 +165,6 @@ const updateAdvertisementComplex = async (req, res) => {
       });
     }
 
-    // Check if the file exists in Backblaze B2 and delete it
-    if (existingAd.fileId) {
-      try {
-        // Verify file exists and is accessible
-        const fileInfo = await b2Service.getFileInfo(existingAd.fileId);
-        
-        // Additional validation if needed
-        if (!fileInfo || !isVideoFile(fileInfo.contentType)) {
-          console.warn(`Invalid file type found in B2: ${fileInfo?.contentType}`);
-        }
-
-        // Attempt to delete the file from B2
-        await b2Service.deleteFile(existingAd.fileId);
-        console.log(`Successfully deleted file ${existingAd.fileId} from B2`);
-
-      } catch (error) {
-        if (error.message.includes('not found')) {
-          // File doesn't exist in B2, we can proceed
-          console.warn(`File ${existingAd.fileId} not found in B2, proceeding with update`);
-        } else {
-          // Other B2 API errors
-          return res.status(500).json({
-            success: false,
-            message: 'Error managing existing file in B2',
-            error: error.message
-          });
-        }
-      }
-
-    }
-
     // Initialize update data
     const updateData = {};
     if (name) updateData.name = name;
@@ -175,49 +179,93 @@ const updateAdvertisementComplex = async (req, res) => {
       updateData.orientation = orientation;
     }
 
-    // Handle file update if new file is provided
-    if (req.file) {
+    // Handle file update based on input type
+    if (youtubeUrl && req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot process both YouTube URL and video file. Please provide only one.'
+      });
+    }
+
+    // Delete existing file if there's a new file or YouTube URL
+    if ((youtubeUrl || req.file) && existingAd.fileId) {
       try {
-        // Validate video file type
+        console.log('Attempting to delete file:', existingAd.fileId);
+        
+        // First try to get file info to confirm it exists
+        try {
+          await b2Service.getFileInfo(existingAd.fileId);
+          // If file exists, delete it
+          await b2Service.deleteFile(existingAd.fileId);
+          console.log('Successfully deleted file:', existingAd.fileId);
+        } catch (fileError) {
+          console.warn('File info/delete error:', fileError.message);
+          // Continue even if file doesn't exist or can't be deleted
+        }
+      } catch (error) {
+        console.error('Error during file deletion:', error);
+        // Continue with the update even if deletion fails
+      }
+    }
+
+    if (youtubeUrl) {
+      // Handle YouTube URL upload
+      try {
+        if (!await youtubeService.validateYouTubeUrl(youtubeUrl)) {
+          return res.status(400).json({
+            error: 'Invalid URL',
+            message: 'Please provide a valid YouTube URL'
+          });
+        }
+
+        const result = await youtubeService.downloadVideo(youtubeUrl, 'highest');
+        console.log('YouTube download result:', result);
+
+        updateData.videoUrl = result.url;
+        updateData.fileName = result.fileName;
+        updateData.fileId = result.fileId;
+        updateData.uploadType = 'youtube';
+        updateData.sourceUrl = youtubeUrl;
+
+      } catch (error) {
+        throw new Error(`YouTube processing failed: ${error.message}`);
+      }
+    } else if (req.file) {
+      // Handle direct file upload
+      try {
         if (!isVideoFile(req.file.mimetype)) {
-          await unlinkAsync(req.file.path); // Clean up invalid file
+          await unlinkAsync(req.file.path);
           return res.status(400).json({
             error: 'Invalid file type',
             message: 'Only video files are allowed'
           });
         }
 
-        // Try to delete the existing file from B2
-        if (existingAd.fileId) {
-          try {
-            await b2Service.deleteFile(existingAd.fileId);
-          } catch (deleteError) {
-            console.error('Error deleting existing file:', deleteError);
-            // Continue with upload even if delete fails
-          }
-        }
-
-        // Upload new file
         const uploadResult = await b2Service.uploadFile(
           req.file.path,
           req.file.originalname,
           req.file.mimetype
         );
+        console.log('File upload result:', uploadResult);
 
-        // Update file-related fields
         updateData.videoUrl = uploadResult.url;
         updateData.fileName = uploadResult.fileName;
         updateData.fileId = uploadResult.fileId;
+        updateData.uploadType = 'direct';
+        updateData.sourceUrl = null;
 
-        // Clean up temporary file
         await unlinkAsync(req.file.path);
       } catch (uploadError) {
-        // Clean up temporary file on error
         if (req.file.path) {
           await unlinkAsync(req.file.path).catch(console.error);
         }
         throw uploadError;
       }
+    } else if (!existingAd.videoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either a video file or YouTube URL must be provided'
+      });
     }
 
     // Update the advertisement
@@ -240,7 +288,8 @@ const updateAdvertisementComplex = async (req, res) => {
     console.error('Error updating advertisement:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -250,13 +299,29 @@ const getAdvertisementById = async (req, res) => {
     const advertisement = await Advertisement.findOne({ 
       _id: req.params.id, 
       isDeleted: false 
-    });
+    }).populate('userId', 'username email');  // Add population for user details
 
     if (!advertisement) {
       return res.status(404).json({
         success: false,
         message: 'Advertisement not found'
       });
+    }
+
+    // Verify file existence in B2
+    if (advertisement.fileId) {
+      try {
+        const fileInfo = await b2Service.getFileInfo(advertisement.fileId);
+        advertisement._doc.fileExists = true;
+        advertisement._doc.fileInfo = {
+          contentType: fileInfo.contentType,
+          contentLength: fileInfo.contentLength,
+          uploadTimestamp: fileInfo.uploadTimestamp
+        };
+      } catch (error) {
+        advertisement._doc.fileExists = false;
+        advertisement._doc.fileError = 'File not found in storage';
+      }
     }
 
     res.status(200).json({
@@ -272,61 +337,151 @@ const getAdvertisementById = async (req, res) => {
 };
 
 
+// Get advertisements by user ID
+const getAdvertisementsByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+
+    // Build query
+    const query = {
+      userId,
+      isDeleted: false
+    };
+
+    // Add status filter if provided
+    if (status) {
+      if (!['pending', 'active', 'inactive'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid status value'
+        });
+      }
+      query.status = status;
+    }
+
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Get all advertisements
+    const advertisements = await Advertisement.find(query)
+      .populate('userId', 'username email')
+      .sort(sort)
+      .lean();
+
+    // Check file existence for each advertisement
+    const advertisementsWithFileStatus = await Promise.all(
+      advertisements.map(async (ad) => {
+        if (ad.fileId) {
+          try {
+            const fileInfo = await b2Service.getFileInfo(ad.fileId);
+            return {
+              ...ad,
+              fileExists: true,
+              fileInfo: {
+                contentType: fileInfo.contentType,
+                contentLength: fileInfo.contentLength,
+                uploadTimestamp: fileInfo.uploadTimestamp
+              }
+            };
+          } catch (error) {
+            return {
+              ...ad,
+              fileExists: false,
+              fileError: 'File not found in storage'
+            };
+          }
+        }
+        return {
+          ...ad,
+          fileExists: false
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      data: advertisementsWithFileStatus
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 // Complete advertisement creation after file upload
 const completeAdvertisement = async (req, res) => {
   try {
     const { advertisementId } = req.params;
     const { name, description, orientation } = req.body;
+    const userId = req.user._id.toString(); // Convert to string for comparison
 
-    // Validate required fields
-    if (!name || !description || !orientation) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required: name, description, orientation'
-      });
-    }
-
-    // Validate orientation
-    if (!['portrait', 'landscape'].includes(orientation)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid orientation. Must be either "portrait" or "landscape"'
-      });
-    }
-
-    // Find the pending advertisement
-    const advertisement = await Advertisement.findOne({
-      _id: advertisementId,
-      userId: req.user._id,
-      status: 'pending'
+    // Debug logs
+    console.log("Debug Info:", {
+      advertisementId,
+      userId,
+      requestBody: req.body
     });
 
-    if (!advertisement) {
-      return res.status(404).json({
-        success: false,
-        message: 'Pending advertisement not found or unauthorized'
+    // First, find without userId to check if ad exists
+    const adExists = await Advertisement.findById(advertisementId);
+    console.log("Advertisement found:", adExists);
+    
+    if (adExists) {
+      console.log("Comparing IDs:", {
+        "Ad userId": adExists.userId.toString(),
+        "Request userId": userId,
+        "Match": adExists.userId.toString() === userId
       });
     }
 
-    // Update the advertisement with complete information
-    advertisement.name = name;
-    advertisement.description = description;
-    advertisement.orientation = orientation;
-    advertisement.status = 'active';
+    // Main query
+    const advertisement = await Advertisement.findOne({
+      _id: advertisementId,
+      userId: userId,
+      status: 'pending'
+    }).lean(); // Using lean() for better performance
 
-    await advertisement.save();
+    if (!advertisement) {
+      // Detailed error response
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement not found or unauthorized',
+        debug: {
+          adExists: !!adExists,
+          userMatch: adExists ? adExists.userId.toString() === userId : false,
+          status: adExists ? adExists.status : null
+        }
+      });
+    }
+
+    // Update the advertisement
+    const updatedAd = await Advertisement.findOneAndUpdate(
+      { _id: advertisementId },
+      {
+        name,
+        description,
+        orientation,
+        status: 'active'
+      },
+      { new: true, runValidators: true }
+    );
 
     res.status(200).json({
       success: true,
       message: 'Advertisement created successfully',
-      data: advertisement
+      data: updatedAd
     });
+
   } catch (error) {
     console.error('Error completing advertisement:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -368,29 +523,39 @@ const deleteAdvertisement = async (req, res) => {
   }
 };
 
-// Helper function to validate video file
-const isVideoFile = (mimetype) => {
-  const validVideoTypes = [
-    'video/mp4',
-    'video/mpeg',
-    'video/x-matroska',  // MKV
-    'video/x-msvideo',   // AVI
-    'video/quicktime',   // MOV
-    'video/webm',        // WebM
-    'video/x-flv'        // FLV
-  ];
-  return validVideoTypes.includes(mimetype);
+const undeleteAdvertisement = async (req, res) => {
+  try {
+    const advertisement = await Advertisement.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: true },
+      { isDeleted: false },
+      { new: true }
+    );
+
+    if (!advertisement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Advertisement undeleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 module.exports = {
-  createAdvertisement,
   getAllAdvertisements,
   updateAdvertisementSimple,
   updateAdvertisementComplex,
   deleteAdvertisement,
-  undeleteAdvertisement,
   getAdvertisementById,
-  deleteAdvertisementById,
-  completeAdvertisement,
+  completeAdvertisement,getAdvertisementsByUserId,undeleteAdvertisement,
   deleteAdvertisement
 };

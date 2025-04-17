@@ -1,44 +1,41 @@
 const express = require('express');
+const ensureDirectories = require('./utils/ensureDirectories');
+const { cleanupAllTempFiles } = require('./utils/cleanup');
+
+// Ensure required directories exist before starting the server
+ensureDirectories();
+
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const path = require('path');
 const fs = require('fs').promises;
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('../swagger.json');
 
 // Load environment variables
 dotenv.config();
 
-// Cleanup function
-async function cleanupAllTempFiles() {
-  const uploadsDir = path.join(__dirname, 'uploads');
-  const youtubeDir = path.join(uploadsDir, 'youtube');
+// Run cleanup every hour
+const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
 
-  try {
-    // Clean main uploads directory
-    await fs.rm(uploadsDir, { recursive: true, force: true });
-    await fs.mkdir(uploadsDir, { recursive: true });
-    
-    // Recreate youtube directory
-    await fs.mkdir(youtubeDir, { recursive: true });
-    
-    console.log('Successfully cleaned up all temporary files:', new Date().toISOString());
-  } catch (err) {
-    console.error('Error during cleanup:', err);
-  }
-}
+// Initial cleanup when server starts
+cleanupAllTempFiles().catch(err => {
+  console.error('Initial cleanup failed:', err);
+});
+
+// Schedule regular cleanup
+setInterval(() => {
+  cleanupAllTempFiles().catch(err => {
+    console.error('Scheduled cleanup failed:', err);
+  });
+}, CLEANUP_INTERVAL);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 fs.mkdir(uploadsDir, { recursive: true })
   .catch(err => console.error('Error creating uploads directory:', err));
-
-// Schedule cleanup every 24 hours
-const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-setInterval(cleanupAllTempFiles, TWENTY_FOUR_HOURS);
-
-// Run initial cleanup on server start
-cleanupAllTempFiles();
 
 // Initialize express app
 const app = express();
@@ -49,6 +46,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Serve static files (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Add this before your routes
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Create HTTP server
 const server = http.createServer(app);
