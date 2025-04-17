@@ -1,15 +1,16 @@
 const express = require('express');
+const multer = require('multer');
 const { protect } = require('../middleware/authMiddleware');
+const { isAdmin } = require('../middleware/roleMiddleware');
 const {
-  createAdvertisement,
   getAllAdvertisements,
-  updateAdvertisement,
-  deleteAdvertisement,
   deleteAdvertisement,
   getAdvertisementById,
   completeAdvertisement,
   updateAdvertisementSimple,
-  updateAdvertisementComplex
+  updateAdvertisementComplex,
+  getAdvertisementsByUserId,
+  undeleteAdvertisement
 } = require('../controllers/advertisementController');
 
 const router = express.Router();
@@ -27,38 +28,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Public route
-router.get('/', getAllAdvertisements);
-
-// Protected routes
-router.post('/', protect, createAdvertisement);
-router.delete('/:id', protect, deleteAdvertisement);
-router.get('/:id',  getAdvertisementById);
-router.delete('/undelete/:id', protect, undeleteAdvertisement);
-router.delete('/deleteById/:id', protect, deleteAdvertisementById);
-
-// Simple update route (name and description only)
-router.patch('/:id/simple', 
-  protect, 
-  updateAdvertisementSimple
-);
-
-// Complete advertisement creation with additional info
-router.post('/:advertisementId/complete',
-  protect,
-  completeAdvertisement
-);
-
-// Complex update route (including video file)
-router.put('/:id/complex', protect,
-  upload.single('video'), // Handle file upload
-  updateAdvertisementComplex
-);
-
-// Delete advertisement and its file
-router.delete('/:advertisementId',
-  protect,
-  deleteAdvertisement
-);
+// Routes
+router.get('/', protect, isAdmin, getAllAdvertisements);
+router.get('/:id', protect, getAdvertisementById);
+router.get('/getAdvertisementsByuser/:userId', protect, getAdvertisementsByUserId);
+// router.delete('/undelete/:id', protect, undeleteAdvertisement);
+router.patch('/:id/updateAdsSimple', protect, updateAdvertisementSimple);
+router.post('/:advertisementId/completeCreation', protect, completeAdvertisement);
+router.put('/:id/updateAdsComplex', protect, upload.single('video'), updateAdvertisementComplex);
+router.delete('/:advertisementId', protect, deleteAdvertisement);
 
 module.exports = router;

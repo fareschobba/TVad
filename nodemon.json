@@ -1,0 +1,23 @@
+{
+  "verbose": true,
+  "watch": [
+    "src/",
+    ".env"
+  ],
+  "ignore": [
+    "src/uploads/*",
+    "*.test.js",
+    "node_modules/**/node_modules",
+    ".git",
+    "coverage"
+  ],
+  "ext": "js,json,yaml,yml,env",
+  "exec": "node src/server.js",
+  "events": {
+    "restart": "clear"
+  },
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "delay": "1500"
+}

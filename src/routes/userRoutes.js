@@ -19,9 +19,9 @@ router.patch('/clients/:userId/toggle-status', protect, isAdmin, toggleAccountSt
 router.post('/reset-account-by-admin', protect, isAdmin, resetUserAccount);
 router.patch('/clients/:userId/role', protect, isAdmin, changeUserRole);
 
-// User routes with videos
+// get User/users with videos
 router.get('/', protect, isAdmin, getAllUsers);
-router.get('/:userId/videos', protect, getUserWithVideos);
+router.get('/:userId/videos', protect,isAdmin, getUserWithVideos);
 
 // Client routes
 router.patch('/profile', protect, updateProfile);

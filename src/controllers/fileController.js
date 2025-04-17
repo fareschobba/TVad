@@ -3,12 +3,22 @@ const youtubeService = require('../services/youtube.service');
 const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
+const { isVideoFile } = require('../utils/fileValidation');
 const unlinkAsync = promisify(fs.unlink);
+const Advertisement = require('../models/advertisement');
 
 exports.uploadFile = async (req, res) => {
   try {
     const { youtubeUrl } = req.body;
 
+       // Handle file update based on input type
+       if (youtubeUrl && req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot process both YouTube URL and video file. Please provide only one.'
+        });
+      }
+      
     // Determine upload method based on input
     if (youtubeUrl) {
       // YouTube URL upload
@@ -132,19 +142,7 @@ async function createAdvertisementRecord(data) {
   });
 }
 
-// Helper function to validate video file
-const isVideoFile = (mimetype) => {
-  const validVideoTypes = [
-    'video/mp4',
-    'video/mpeg',
-    'video/x-matroska',  // MKV
-    'video/x-msvideo',   // AVI
-    'video/quicktime',   // MOV
-    'video/webm',        // WebM
-    'video/x-flv'        // FLV
-  ];
-  return validVideoTypes.includes(mimetype);
-};
+
 
 exports.listFiles = async (req, res) => {
   try {
@@ -263,7 +261,5 @@ exports.getDownloadUrl = async (req, res) => {
     });
   }
 };
-
-
 
 

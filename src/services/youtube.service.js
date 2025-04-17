@@ -1,7 +1,8 @@
 const ytdl = require('ytdl-core');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises; // Change to use fs.promises
 const b2Service = require('./b2.service');
+const { UPLOAD_DIRS } = require('../utils/cleanup');
 
 const options = {
   requestOptions: {
@@ -13,25 +14,21 @@ const options = {
 
 class YouTubeService {
   constructor() {
-    this.tempDir = path.join(__dirname, '../uploads/youtube');
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
-    }
+    this.tempDir = UPLOAD_DIRS.temp;
   }
 
   async cleanupTempFiles() {
     try {
-      const files = await fs.promises.readdir(this.tempDir);
+      const files = await fs.readdir(this.tempDir);
       const now = Date.now();
-      const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+      const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
 
       for (const file of files) {
         const filePath = path.join(this.tempDir, file);
         try {
-          const stats = await fs.promises.stat(filePath);
-          // Delete files older than 24 hours
+          const stats = await fs.stat(filePath);
           if (stats.ctimeMs < twentyFourHoursAgo) {
-            await fs.promises.unlink(filePath);
+            await fs.unlink(filePath); // Changed from fs.remove to fs.unlink
             console.log(`Cleaned up old temp file: ${filePath}`);
           }
         } catch (err) {
@@ -98,18 +95,19 @@ class YouTubeService {
 
         video.on('error', async (error) => {
           if (filePath) {
-            await fs.promises.unlink(filePath).catch(err => 
+            await fs.unlink(filePath).catch(err => 
               console.error('Error deleting failed download:', err)
             );
           }
           reject(new Error(`Download failed: ${error.message}`));
         });
 
-        const writeStream = fs.createWriteStream(filePath);
+        // Need to use regular fs for createWriteStream
+        const writeStream = require('fs').createWriteStream(filePath);
 
         writeStream.on('error', async (error) => {
           if (filePath) {
-            await fs.promises.unlink(filePath).catch(err => 
+            await fs.unlink(filePath).catch(err => 
               console.error('Error deleting failed write:', err)
             );
           }
@@ -127,7 +125,7 @@ class YouTubeService {
             );
 
             // Ensure cleanup happens
-            await fs.promises.unlink(filePath).catch(err => 
+            await fs.unlink(filePath).catch(err => 
               console.error('Error deleting temp file after upload:', err)
             );
 
@@ -139,7 +137,7 @@ class YouTubeService {
           } catch (error) {
             // Cleanup on upload error
             if (filePath) {
-              await fs.promises.unlink(filePath).catch(err => 
+              await fs.unlink(filePath).catch(err => 
                 console.error('Error deleting failed upload:', err)
               );
             }
@@ -150,7 +148,7 @@ class YouTubeService {
     } catch (error) {
       // Cleanup on any other error
       if (filePath) {
-        await fs.promises.unlink(filePath).catch(err => 
+        await fs.unlink(filePath).catch(err => 
           console.error('Error deleting on setup error:', err)
         );
       }
@@ -170,5 +168,7 @@ setInterval(() => service.cleanupTempFiles(), TWENTY_FOUR_HOURS);
 service.cleanupTempFiles();
 
 module.exports = service;
+
+
 
 
