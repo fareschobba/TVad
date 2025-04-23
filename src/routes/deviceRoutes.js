@@ -10,30 +10,26 @@ const {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair,
-  deleteDeviceById
+  unpair
 } = require('../controllers/deviceController');
 
 const router = express.Router();
 
-// Public routes (no authentication required)
-router.get('/', getAllDevices);
+// All routes require authentication
+router.use(protect);
+
+// Routes accessible by both admin and regular users
 router.get('/search', getDeviceByNameOrId);
-
-
-//new add
+router.get('/:id', getDeviceById);
 router.patch('/:id/isPaired', pairDevice);
 router.patch('/:id/unpair', unpair);
+router.patch('/unarchive/:id', protect, undeleteDevice); // Add this line for unarchiving
 
-
-// Protected routes (require authentication)
-router.use(protect);
+// Routes with role-based access
+router.get('/', getAllDevices); // Admin sees all, users see their own
 router.post('/', createDevice);
-router.put('/:id', updateDevice);
-router.delete('/:id', deleteDevice);
-router.get('/:id', getDeviceById);
-router.delete('/undeleteDevice/:id', undeleteDevice);
-router.delete('/deleteById/:id', deleteDeviceById);
-
+router.put('/:id', updateDevice); // Admin can update any, users their own
+router.delete('/:id', deleteDevice); // Admin can delete any, users their own
+router.patch('/undelete/:id', undeleteDevice); // Admin can undelete any, users their own
 
 module.exports = router;

@@ -15,7 +15,7 @@ const protect = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
-    // 2. Verify token
+    // 2. Verify token and get decoded data
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 3. Check if user exists
@@ -27,13 +27,14 @@ const protect = async (req, res, next) => {
       });
     }
 
-    // 4. Grant access to protected route
+    // 4. Add decoded ID and user to request object
+    req.userId = decoded.id;
     req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
-      message: 'Not authorized to access this resource',
+      message: 'Not authorized to access this route',
     });
   }
 };

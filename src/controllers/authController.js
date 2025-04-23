@@ -3,10 +3,18 @@ const jwt = require('jsonwebtoken');
 const AdminUser = require('../models/adminUser');
 
 // Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+const generateToken = (id, role, forcePasswordChange) => {
+  return jwt.sign(
+    { 
+      id,
+      role,
+      forcePasswordChange 
+    }, 
+    process.env.JWT_SECRET, 
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    }
+  );
 };
 
 // Login controller
@@ -31,22 +39,18 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if password change is required
-    if (user.forcePasswordChange) {
-      return res.status(200).json({
-        success: true,
-        token: generateToken(user._id),
-        forcePasswordChange: true,
-        message: 'Veuillez changer votre mot de passe'
-      });
-    }
-
-    const token = generateToken(user._id);
+    // Generate token with forcePasswordChange status
+    const token = generateToken(user._id, user.role, user.forcePasswordChange);
 
     res.status(200).json({
       success: true,
       token,
-      forcePasswordChange: false
+      forcePasswordChange: user.forcePasswordChange,
+      user: {
+        id: user._id,
+        username: user.username,
+        role: user.role
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -155,10 +159,68 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Controller to handle password change with verification
+const changePasswordWithVerification = async (req, res) => {
+  try {
+    const { userId, currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!userId || !currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide userId, current password and new password'
+      });
+    }
+
+    // Find user
+    const user = await AdminUser.findOne({ 
+      _id: userId, 
+      isDeleted: false 
+    }).select('+password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Verify current password
+    const isPasswordValid = await user.comparePassword(currentPassword);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.forcePasswordChange = false; // Reset force password change flag
+    await user.save();
+
+    // Generate new token with updated forcePasswordChange status
+    const token = generateToken(user._id, user.role, false);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully',
+      token // Send new token to client
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   login,
   createInitialAdmin,
   validatePassword,
   authenticateAdmin,
-  changePassword
+  changePassword,
+  changePasswordWithVerification
 };

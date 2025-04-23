@@ -25,6 +25,11 @@ const deviceSchema = new mongoose.Schema({
     required: [true, 'Device orientation is required'],
     enum: ['portrait', 'landscape']
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdminUser',
+    required: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

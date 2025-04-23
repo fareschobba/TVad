@@ -346,7 +346,6 @@ const getAdvertisementsByUserId = async (req, res) => {
     // Build query
     const query = {
       userId,
-      isDeleted: false
     };
 
     // Add status filter if provided
@@ -416,7 +415,7 @@ const getAdvertisementsByUserId = async (req, res) => {
 const completeAdvertisement = async (req, res) => {
   try {
     const { advertisementId } = req.params;
-    const { name, description, orientation } = req.body;
+    const { name, description, orientation }   = req.body;
     const userId = req.user._id.toString(); // Convert to string for comparison
 
     // Debug logs
@@ -493,7 +492,6 @@ const deleteAdvertisement = async (req, res) => {
 
     const advertisement = await Advertisement.findOne({
       _id: advertisementId,
-      userId: req.user._id
     });
 
     if (!advertisement) {
