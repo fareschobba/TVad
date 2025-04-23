@@ -70,21 +70,14 @@ exports.getAllSchedules = async (req, res) => {
 exports.getSchedulesByFilter = async (req, res) => {
   try {
     const { advertisementId, deviceId, date } = req.query;
-    const userId = req.user._id;
     
     const query = { isDeleted: false };
-
-    // Only show schedules for devices owned by the user
-    const userDevices = await Device.find({ userId: userId });
-    const deviceIds = userDevices.map(device => device._id);
-    query.deviceId = { $in: deviceIds };
 
     if (advertisementId) {
       // Check if user has access to this advertisement
       const ad = await Advertisement.findOne({ 
         _id: advertisementId, 
         isDeleted: false,
-        userId: userId 
       });
       if (!ad) {
         return res.status(403).json({
@@ -99,7 +92,6 @@ exports.getSchedulesByFilter = async (req, res) => {
       const device = await Device.findOne({ 
         deviceId: deviceId, 
         isDeleted: false,
-        userId: userId
       });
       if (!device) {
         return res.status(404).json({
