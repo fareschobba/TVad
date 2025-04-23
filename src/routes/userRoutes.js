@@ -8,10 +8,14 @@ const {
   resetUserAccount,
   changeUserRole,
   getAllUsers,
-  getUserWithVideos
+  getUserWithVideos,
+  getCurrentUser
 } = require('../controllers/userController');
 
 const router = express.Router();
+
+// Add this new route
+router.get('/me/:userId', protect, getCurrentUser);
 
 // Admin routes
 router.post('/Create-client', protect, isAdmin, createClient);

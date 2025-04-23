@@ -15,13 +15,13 @@ const {
 const router = express.Router();
 
 // Public routes
-router.get('/', getAllSchedules);
+router.get('/:id', getAllSchedules);
 router.get('/search', getSchedulesByFilter);
 
 // Protected routes
 router.post('/', protect, createSchedule);
 router.put('/:id', protect, updateSchedule);
-router.get('/:id', protect, getScheduleById);
+router.get('/:id/:userId', protect, getScheduleById);
 router.delete('/:id', protect, deleteSchedule);
 router.put('/archives/:id',protect,archiveSchedule);
 router.get('/archives',protect,getArchivedSchedules);

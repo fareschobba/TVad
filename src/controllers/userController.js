@@ -255,19 +255,32 @@ const getUserWithVideos = async (req, res) => {
       });
     }
 
-    // Find all videos associated with this user
-    const videos = await Advertisement.find({ 
-      userId: userId,
-      isDeleted: false 
-    })
-    .select('name description videoUrl orientation createdAt')
-    .lean();
+    let videos;
+    
+    // If user is admin, fetch all videos in the system
+    if (user.role === 'admin') {
+      videos = await Advertisement.find({ isDeleted: false })
+        .select('name description videoUrl orientation createdAt status')
+        .populate('userId', 'username email')
+        .lean();
+    } else {
+      // For non-admin users, only show their own videos
+      videos = await Advertisement.find({ 
+        userId: userId,
+        isDeleted: false 
+      })
+        .select('name description videoUrl orientation createdAt status')
+        .populate('userId', 'username email')
+        .lean();
+    }
 
     res.status(200).json({
       success: true,
       data: {
         user,
-        videos
+        videos,
+        totalVideos: videos.length,
+        isAdminView: user.role === 'admin'
       }
     });
   } catch (error) {
@@ -286,7 +299,7 @@ const createAdvertisement = async (req, res) => {
     // Add userId from authenticated user
     const userId = req.user._id;
 
-    const advertisement = await Advertisement.create({
+    const advertisement = await advertisement.create({
       name,
       description,
       videoUrl,
@@ -306,6 +319,49 @@ const createAdvertisement = async (req, res) => {
   }
 };
 
+// Get current connected user
+const getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const user = await AdminUser.findOne({ 
+      _id: userId, 
+      isDeleted: false 
+    })
+    .select('username email phoneNumber role isActive createdAt')  // Explicitly select the fields we want
+    .lean();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Transform the response to include all necessary fields
+    const userData = {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      isActive: user.isActive,
+      isDeleted: user.isDeleted,
+      createdAt: user.createdAt
+    };
+
+    res.status(200).json({
+      success: true,
+      data: userData
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createClient,
   updateProfile,
@@ -314,7 +370,8 @@ module.exports = {
   changeUserRole,
   getAllUsers,
   getUserWithVideos,
-  createAdvertisement
+  createAdvertisement,
+  getCurrentUser
 };
 
 

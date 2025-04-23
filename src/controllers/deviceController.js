@@ -6,6 +6,7 @@ const { generateUniqueDeviceId } = require('../utils/generateId');
 const createDevice = async (req, res) => {
   try {
     const { name, description, orientation } = req.body;
+    const userId = req.user._id;
     
     // Check if device with same name exists and is not deleted
     const existingDevice = await Device.findOne({ name, isDeleted: false });
@@ -23,7 +24,8 @@ const createDevice = async (req, res) => {
       deviceId,
       name,
       description,
-      orientation
+      orientation,
+      userId
     });
 
     res.status(201).json({
@@ -38,11 +40,21 @@ const createDevice = async (req, res) => {
   }
 };
 
-// Get all devices (excluding deleted ones)
+// Get all devices (with user role check)
 const getAllDevices = async (req, res) => {
   try {
-    const devices = await Device.find();
-    
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    let query = {};
+    // If not admin, only show user's devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
+    const devices = await Device.find(query)
+      .populate('userId', 'username email');
+
     res.status(200).json({
       success: true,
       count: devices.length,
@@ -56,10 +68,12 @@ const getAllDevices = async (req, res) => {
   }
 };
 
-//Get Device by name or id
+// Get Device by name or id
 const getDeviceByNameOrId = async (req, res) => {
   try {
     const { name, deviceId } = req.query;
+    const userId = req.user._id;
+    const userRole = req.user.role;
     
     if (!name && !deviceId) {
       return res.status(400).json({
@@ -70,15 +84,20 @@ const getDeviceByNameOrId = async (req, res) => {
 
     let query = { isDeleted: false };
 
+    // If not admin, only show user's devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
     if (name) {
-      query.name = new RegExp(`^${name}$`, 'i'); // case insensitive exact match
+      query.name = new RegExp(`^${name}$`, 'i');
     }
 
     if (deviceId) {
-      query.deviceId = new RegExp(`^${deviceId}$`, 'i'); // case insensitive exact match
+      query.deviceId = new RegExp(`^${deviceId}$`, 'i');
     }
 
-    const device = await Device.findOne(query);
+    const device = await Device.findOne(query).populate('userId', 'username email');
 
     if (!device) {
       return res.status(404).json({
@@ -99,108 +118,19 @@ const getDeviceByNameOrId = async (req, res) => {
   }
 };
 
-//Get Device by name or id
-const pairDevice = async (req, res) => {
-  try {
-    const { id } = req.params; // Assuming the device ID is passed as a URL parameter
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: 'The deviceId parameter is required',
-      });
-    }
-
-    // Find the device by ID
-    const device = await Device.findOne({deviceId : id});
-
-    // If device not found
-    if (!device) {
-      return res.status(404).json({
-        success: false,
-        message: 'Device not found'
-      });
-    }
-
-    // Check if the device is already paired
-    if (device.isPaired) {
-      return res.status(403).json({
-        success: false,
-        message: 'Device is already paired'
-      });
-    }
-
-    // Mark the device as paired
-    device.isPaired = true;
-    await device.save();
-
-    return res.status(200).json({
-      success: true,
-      message: 'Device successfully paired',
-      data: device
-    });
-  } catch (error) {
-    // Handle errors
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
-const unpair = async (req, res) => {
-  try {
-    const { id } = req.params; // Assuming the device ID is passed as a URL parameter
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: 'The deviceId parameter is required',
-      });
-    }
-
-    // Find the device by ID
-    const device = await Device.findOne({ deviceId: id });
-
-    // If device not found
-    if (!device) {
-      return res.status(404).json({
-        success: false,
-        message: 'Device not found',
-      });
-    }
-
-    // Check if the device is already unpaired
-    if (!device.isPaired) {
-      return res.status(403).json({
-        success: false,
-        message: 'Device is already unpaired',
-      });
-    }
-
-    // Unpair the device
-    device.isPaired = false;
-    await device.save();
-
-    return res.status(200).json({
-      success: true,
-      message: 'Device successfully unpaired',
-      data: device,
-    });
-  } catch (error) {
-    // Handle errors
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
 // Update device
 const updateDevice = async (req, res) => {
   try {
     const { name, description, orientation } = req.body;
+    const userId = req.user._id;
+    const userRole = req.user.role;
     
-    // Check if new name conflicts with existing device
+    let query = { _id: req.params.id, isDeleted: false };
+    // If not admin, only allow updating own devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
     if (name) {
       const existingDevice = await Device.findOne({
         name,
@@ -217,15 +147,15 @@ const updateDevice = async (req, res) => {
     }
 
     const device = await Device.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: false },
+      query,
       { name, description, orientation },
       { new: true, runValidators: true }
-    );
+    ).populate('userId', 'username email');
 
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found'
+        message: 'Device not found or access denied'
       });
     }
 
@@ -244,8 +174,15 @@ const updateDevice = async (req, res) => {
 // Soft delete device
 const deleteDevice = async (req, res) => {
   try {
+    const userId = req.user._id;
+
+    let query = { 
+      _id: req.params.id, 
+      userId: userId // Only allow users to delete their own devices
+    };
+
     const device = await Device.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: false },
+      query,
       { isDeleted: true },
       { new: true }
     );
@@ -253,7 +190,7 @@ const deleteDevice = async (req, res) => {
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found'
+        message: 'Device not found or access denied'
       });
     }
 
@@ -268,44 +205,25 @@ const deleteDevice = async (req, res) => {
     });
   }
 };
-const undeleteDevice = async (req, res) => {
-  try {
-    const device = await Device.findOneAndUpdate(
-      { _id: req.params.id, isDeleted: true },
-      { isDeleted: false },
-      { new: true }
-    );
 
-    if (!device) {
-      return res.status(404).json({
-        success: false,
-        message: 'Device not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Device deleted successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
 // Get device by ID
 const getDeviceById = async (req, res) => {
   try {
-    const device = await Device.findOne({
-      _id: req.params.id,
-      isDeleted: false
-    });
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    let query = { _id: req.params.id, isDeleted: false };
+    // If not admin, only show user's devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query).populate('userId', 'username email');
 
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found'
+        message: 'Device not found or access denied'
       });
     }
 
@@ -321,20 +239,121 @@ const getDeviceById = async (req, res) => {
   }
 };
 
-// Delete device by ID
-const deleteDeviceById = async (req, res) => {
+// Undelete device
+const undeleteDevice = async (req, res) => {
   try {
-    const { id } = req.params;
-    const device = await Device.findByIdAndDelete(id);
+    const userId = req.user._id;
+
+    let query = { 
+      _id: req.params.id, 
+      isDeleted: true,
+      userId: userId // Only allow users to unarchive their own devices
+    };
+
+    const device = await Device.findOneAndUpdate(
+      query,
+      { isDeleted: false },
+      { new: true }
+    );
+
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: 'Device not found'
+        message: 'Device not found or access denied'
       });
     }
+
     res.status(200).json({
       success: true,
-      message: 'Device deleted successfully'
+      message: 'Device restored successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Pair device
+const pairDevice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    let query = { deviceId: id, isDeleted: false };
+    // If not admin, only allow pairing own devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query);
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found or access denied'
+      });
+    }
+
+    if (device.isPaired) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device is already paired'
+      });
+    }
+
+    device.isPaired = true;
+    await device.save();
+
+    res.status(200).json({
+      success: true,
+      data: device
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Unpair device
+const unpair = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    let query = { deviceId: id, isDeleted: false };
+    // If not admin, only allow unpairing own devices
+    if (userRole !== 'admin') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query);
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found or access denied'
+      });
+    }
+
+    if (!device.isPaired) {
+      return res.status(400).json({
+        success: false,
+        message: 'Device is already unpaired'
+      });
+    }
+
+    device.isPaired = false;
+    await device.save();
+
+    res.status(200).json({
+      success: true,
+      data: device
     });
   } catch (error) {
     res.status(500).json({
@@ -353,6 +372,5 @@ module.exports = {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair,
-  deleteDeviceById
+  unpair
 };

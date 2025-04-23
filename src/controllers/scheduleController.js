@@ -40,9 +40,19 @@ const checkScheduleOverlap = async (
 // Get all schedules
 exports.getAllSchedules = async (req, res) => {
   try {
-    const schedules = await Schedule.find({ isDeleted: false })
-      .populate("deviceId", "name description deviceId isDeleted")
-      .populate("advertisementIds", "name description videoUrl orientation isDeleted");
+    const userId = req.params.id;
+    console.log("user",userId)
+    // Only show schedules for devices owned by the user
+    const userDevices = await Device.find({ userId: userId });
+    const deviceIds = userDevices.map(device => device._id);
+    const query = { 
+      isDeleted: false,
+      deviceId: { $in: deviceIds }
+    };
+
+    const schedules = await Schedule.find(query)
+      .populate("deviceId", "name description deviceId isDeleted userId")
+      .populate("advertisementIds", "name description videoUrl orientation isDeleted userId");
 
     res.status(200).json({
       success: true,
@@ -60,21 +70,43 @@ exports.getAllSchedules = async (req, res) => {
 exports.getSchedulesByFilter = async (req, res) => {
   try {
     const { advertisementId, deviceId, date } = req.query;
+    const userId = req.user._id;
+    
     const query = { isDeleted: false };
 
+    // Only show schedules for devices owned by the user
+    const userDevices = await Device.find({ userId: userId });
+    const deviceIds = userDevices.map(device => device._id);
+    query.deviceId = { $in: deviceIds };
+
     if (advertisementId) {
+      // Check if user has access to this advertisement
+      const ad = await Advertisement.findOne({ 
+        _id: advertisementId, 
+        isDeleted: false,
+        userId: userId 
+      });
+      if (!ad) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied to this advertisement",
+        });
+      }
       query.advertisementIds = advertisementId;
     }
+
     if (deviceId) {
-      // Validate device exists and not deleted
-      const device = await Device.findOne({ deviceId: deviceId, isDeleted: false });
+      const device = await Device.findOne({ 
+        deviceId: deviceId, 
+        isDeleted: false,
+        userId: userId
+      });
       if (!device) {
         return res.status(404).json({
           success: false,
-          message: "Device not found",
+          message: "Device not found or access denied",
         });
       }
-      console.log("device : ", device)
       query.deviceId = device._id;
     }
     if (date) {
@@ -91,8 +123,8 @@ exports.getSchedulesByFilter = async (req, res) => {
     }
 
     const schedules = await Schedule.find(query)
-      .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation");
+      .populate("deviceId", "name description userId")
+      .populate("advertisementIds", "name description videoUrl orientation userId");
 
     res.status(200).json({
       success: true,
@@ -173,30 +205,39 @@ exports.createSchedule = async (req, res) => {
     const {
       advertisementIds,
       deviceId,
+      userId,
       startTime,
       playTime,
       playMode,
       repeat,
     } = req.body;
 
-    // Validate device exists and not deleted
-    const device = await Device.findOne({ _id: deviceId, isDeleted: false });
+
+    // Validate device exists and belongs to user
+    const device = await Device.findOne({ 
+      _id: deviceId, 
+      userId: userId,
+      isDeleted: false
+    });
+    
     if (!device) {
       return res.status(404).json({
         success: false,
-        message: "Device not found",
+        message: "Device not found or access denied",
       });
     }
 
-    // Validate all advertisements exist and not deleted
+    // Validate all advertisements exist and belong to user
     const advertisements = await Advertisement.find({
       _id: { $in: advertisementIds },
-      isDeleted: false,
+      userId: userId,
+      isDeleted: false
     });
+
     if (advertisements.length !== advertisementIds.length) {
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
-        message: "One or more advertisements not found",
+        message: "One or more advertisements not found or access denied",
       });
     }
 
@@ -221,6 +262,7 @@ exports.createSchedule = async (req, res) => {
       playTime,
       playMode,
       repeat,
+      userId // Added userId to the schedule
     });
 
     await newSchedule.save();
@@ -254,55 +296,53 @@ exports.updateSchedule = async (req, res) => {
       advertisementIds,
       startTime,
       playTime,
+      userId,
       playMode,
       repeat,
     } = req.body;
 
     const scheduleId = req.params.id;
-    //console all req.body with attributes
-    console.log("deviceId" + deviceId, "advertisementIds" + advertisementIds, "startTime" + startTime, "playTime" + playTime, "playMode" + playMode, "repeat" + repeat)
 
-    // Validate schedule exists
-    const schedule = await Schedule.findOne({
-      _id: scheduleId,
-      isDeleted: false,
-    });
-    if (!schedule) {
+    // Find the schedule and check ownership through device
+    const existingSchedule = await Schedule.findOne({ _id: scheduleId, isDeleted: false })
+      .populate('deviceId');
+
+    if (!existingSchedule) {
       return res.status(404).json({
         success: false,
         message: "Schedule not found",
       });
     }
 
-    // Validate device exists and not deleted
-    const device = await Device.findOne({ _id: deviceId, isDeleted: false });
-    if (!device) {
-      return res.status(404).json({
+    // Check if user owns the device
+    if (existingSchedule.deviceId.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
         success: false,
-        message: "Device not found",
+        message: "Access denied to this schedule",
       });
     }
 
-    // Validate advertisements if updated
     if (advertisementIds) {
+      // Verify user has access to all advertisements
       const advertisements = await Advertisement.find({
         _id: { $in: advertisementIds },
         isDeleted: false,
+        userId: userId
       });
       if (advertisements.length !== advertisementIds.length) {
         return res.status(404).json({
           success: false,
-          message: "One or more advertisements not found",
+          message: "One or more advertisements not found or access denied",
         });
       }
     }
 
     // Check for schedule overlap if time-related fields are updated
     if (startTime || playTime) {
-      const newStartTime = startTime || schedule.startTime;
-      const newPlayTime = playTime || schedule.playTime;
+      const newStartTime = startTime || existingSchedule.startTime;
+      const newPlayTime = playTime || existingSchedule.playTime;
       const overlappingSchedule = await checkScheduleOverlap(
-        deviceId,
+        deviceId || existingSchedule.deviceId,
         newStartTime,
         newPlayTime,
         scheduleId
@@ -315,38 +355,34 @@ exports.updateSchedule = async (req, res) => {
       }
     }
 
-    // Calculate new end time if needed
-    const endTime =
-      startTime || playTime
-        ? new Date(
-          new Date(startTime || schedule.startTime).getTime() +
-          (playTime || schedule.playTime) * 1000
-        )
-        : schedule.endTime;
+    const endTime = startTime || playTime
+      ? new Date(new Date(startTime || existingSchedule.startTime).getTime() + (playTime || existingSchedule.playTime) * 1000)
+      : existingSchedule.endTime;
 
     const updatedSchedule = await Schedule.findByIdAndUpdate(
       scheduleId,
       {
-        deviceId,
-        advertisementIds,
-        startTime,
+        deviceId: deviceId || existingSchedule.deviceId,
+        advertisementIds: advertisementIds || existingSchedule.advertisementIds,
+        startTime: startTime || existingSchedule.startTime,
         endTime,
-        playTime,
-        playMode,
-        repeat,
+        playTime: playTime || existingSchedule.playTime,
+        playMode: playMode || existingSchedule.playMode,
+        repeat: repeat !== undefined ? repeat : existingSchedule.repeat,
       },
-      { new: true, runValidators: true }
-    ).populate("deviceId", "name description").populate("advertisementIds", "name description videoUrl orientation");
+      { new: true }
+    ).populate("deviceId");
 
-    // Emit socket event to notify connected clients
+    // Emit socket event
     const io = socket.getIO();
-    io.emit(`updateSchedule/${device.deviceId}`, {
+    io.emit(`updateSchedule/${updatedSchedule.deviceId.deviceId}`, {
       schedule: updatedSchedule,
-      device: device,
+      device: updatedSchedule.deviceId,
     });
 
     res.status(200).json({
       success: true,
+      message: "Schedule updated successfully",
       data: updatedSchedule,
     });
   } catch (error) {
@@ -360,11 +396,13 @@ exports.updateSchedule = async (req, res) => {
 // Delete schedule (soft delete)
 exports.deleteSchedule = async (req, res) => {
   try {
-    const schedule = await Schedule.findByIdAndUpdate(
-      req.params.id,
-      { isDeleted: true },
-      { new: true }
-    );
+    const scheduleId = req.params.id;
+    const userId = req.user._id;
+    const isAdmin = req.user.role === 'admin';
+
+    // Find the schedule and check ownership through device
+    const schedule = await Schedule.findOne({ _id: scheduleId, isDeleted: false })
+      .populate('deviceId');
 
     if (!schedule) {
       return res.status(404).json({
@@ -372,6 +410,17 @@ exports.deleteSchedule = async (req, res) => {
         message: "Schedule not found",
       });
     }
+
+    // Check if user has access to the device
+    if (!isAdmin && schedule.deviceId.userId.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied to this schedule",
+      });
+    }
+
+    schedule.isDeleted = true;
+    await schedule.save();
 
     res.status(200).json({
       success: true,
@@ -430,14 +479,21 @@ exports.getArchivedSchedules = async (req, res) => {
 // Get schedule by ID
 exports.getScheduleById = async (req, res) => {
   try {
-    const schedule = await Schedule.findById(req.params.id)
-      .populate("deviceId", "name description")
-      .populate("advertisementIds", "name description videoUrl orientation isDeleted");
+    const userId = req.params.userId;
+    
+    const schedule = await Schedule.findOne({ 
+      _id: req.params.id,
+      userId: userId,
+      isDeleted: false 
+    })
+    .populate("deviceId", "name description")
+    .populate("advertisementIds", "name description videoUrl orientation isDeleted")
+    .populate("userId", "name email role"); // Added userId population
 
     if (!schedule) {
       return res.status(404).json({
         success: false,
-        message: "Schedule not found",
+        message: "Schedule not found or access denied",
       });
     }
 

@@ -28,6 +28,11 @@ const scheduleSchema = new mongoose.Schema({
     enum: ['loop', 'shuffle'],
     default: 'loop'
   },
+   userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AdminUser',
+      required: true
+    },  
   repeat: {
     type: String,
     enum: ['once', 'daily', 'weekly', 'monthly', 'custom'],

@@ -32,7 +32,7 @@ const upload = multer({ storage: storage });
 router.get('/', protect, isAdmin, getAllAdvertisements);
 router.get('/:id', protect, getAdvertisementById);
 router.get('/getAdvertisementsByuser/:userId', protect, getAdvertisementsByUserId);
-// router.delete('/undelete/:id', protect, undeleteAdvertisement);
+ router.delete('/undelete/:id', protect, undeleteAdvertisement);
 router.patch('/:id/updateAdsSimple', protect, updateAdvertisementSimple);
 router.post('/:advertisementId/completeCreation', protect, completeAdvertisement);
 router.put('/:id/updateAdsComplex', protect, upload.single('video'), updateAdvertisementComplex);
