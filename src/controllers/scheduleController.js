@@ -38,7 +38,7 @@ const checkScheduleOverlap = async (
 };
 
 // Get all schedules
-exports.getAllSchedules = async (req, res) => {
+const getAllSchedules = async (req, res) => {
   try {
     const userId = req.params.id;
     console.log("user",userId)
@@ -67,8 +67,9 @@ exports.getAllSchedules = async (req, res) => {
 };
 
 // Get schedules by filter (advertisementId/deviceId/date)
-exports.getSchedulesByFilter = async (req, res) => {
+const getSchedulesByFilter = async (req, res) => {
   try {
+    console.log("hereeeeee");
     const { advertisementId, deviceId, date } = req.query;
     
     const query = { isDeleted: false };
@@ -88,19 +89,19 @@ exports.getSchedulesByFilter = async (req, res) => {
       query.advertisementIds = advertisementId;
     }
 
-    if (deviceId) {
-      const device = await Device.findOne({ 
-        deviceId: deviceId, 
-        isDeleted: false,
-      });
-      if (!device) {
-        return res.status(404).json({
-          success: false,
-          message: "Device not found or access denied",
-        });
-      }
-      query.deviceId = device._id;
-    }
+    // if (deviceId) {
+    //   const device = await Device.findOne({ 
+    //     deviceId: deviceId, 
+    //     isDeleted: false,
+    //   });
+    //   if (!device) {
+    //     return res.status(404).json({
+    //       success: false,
+    //       message: "Device not found or access denied",
+    //     });
+    //   }
+    //   query.deviceId = device._id;
+    // }
     if (date) {
       const searchDate = new Date(date);
       const nextDay = new Date(searchDate);
@@ -133,7 +134,7 @@ exports.getSchedulesByFilter = async (req, res) => {
 
 
 // Update schedule by deviceId
-exports.updateScheduleByDeviceId = async (req, res) => {
+const updateScheduleByDeviceId = async (req, res) => {
   try {
     const { deviceId, advertisementIds, startTime, playTime, playMode, repeat } = req.body;
 
@@ -192,7 +193,7 @@ exports.updateScheduleByDeviceId = async (req, res) => {
 
 
 // Create schedule
-exports.createSchedule = async (req, res) => {
+const createSchedule = async (req, res) => {
   try {
     const {
       advertisementIds,
@@ -281,7 +282,7 @@ exports.createSchedule = async (req, res) => {
 
 
 // Update schedule
-exports.updateSchedule = async (req, res) => {
+const updateSchedule = async (req, res) => {
   try {
     const {
       deviceId,
@@ -386,7 +387,7 @@ exports.updateSchedule = async (req, res) => {
 };
 
 // Delete schedule (soft delete)
-exports.deleteSchedule = async (req, res) => {
+const deleteSchedule = async (req, res) => {
   try {
     const scheduleId = req.params.id;
     const userId = req.user._id;
@@ -427,7 +428,7 @@ exports.deleteSchedule = async (req, res) => {
 };
 
 // Archive schedule
-exports.archiveSchedule = async (req, res) => {
+const archiveSchedule = async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -452,7 +453,7 @@ exports.archiveSchedule = async (req, res) => {
 };
 
 // Get archived schedules
-exports.getArchivedSchedules = async (req, res) => {
+const getArchivedSchedules = async (req, res) => {
   try {
     const archivedSchedules = await Schedule.find({ isDeleted: true })
       .populate("deviceId", "name description")
@@ -469,7 +470,7 @@ exports.getArchivedSchedules = async (req, res) => {
 };
 
 // Get schedule by ID
-exports.getScheduleById = async (req, res) => {
+const getScheduleById = async (req, res) => {
   try {
     const userId = req.params.userId;
     
@@ -502,7 +503,7 @@ exports.getScheduleById = async (req, res) => {
 };
 
 //delete schedule by id
-exports.deleteScheduleById = async (req, res) => {
+const deleteScheduleById = async (req, res) => {
   try {
     const schedule = await Schedule.findByIdAndDelete(req.params.id);
 
@@ -523,4 +524,16 @@ exports.deleteScheduleById = async (req, res) => {
       message: error.message,
     });
   }
+};
+
+module.exports = {
+  getSchedulesByFilter,
+  createSchedule,
+  getAllSchedules,
+  updateSchedule,
+  deleteSchedule,
+  archiveSchedule,
+  getArchivedSchedules,
+  getScheduleById,
+  deleteScheduleById
 };
