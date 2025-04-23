@@ -115,15 +115,15 @@ exports.getSchedulesByFilter = async (req, res) => {
     }
 
     const schedules = await Schedule.find(query)
-      .populate("deviceId", "name description userId")
-      .populate("advertisementIds", "name description videoUrl orientation userId");
+      .populate("deviceId", "name description ")
+      .populate("advertisementIds", "name description videoUrl orientation ");
 
     res.status(200).json({
       success: true,
       data: schedules,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(400).json({
       success: false,
       message: error.message,
     });
