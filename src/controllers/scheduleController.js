@@ -69,39 +69,40 @@ const getAllSchedules = async (req, res) => {
 // Get schedules by filter (advertisementId/deviceId/date)
 const getSchedulesByFilter = async (req, res) => {
   try {
-    console.log("hereeeeee");
     const { advertisementId, deviceId, date } = req.query;
-    
     const query = { isDeleted: false };
 
+    if (deviceId) {
+      // Find device by deviceId (not _id)
+      const device = await Device.findOne({ 
+        deviceId: deviceId, 
+        isDeleted: false
+      });
+      
+      if (!device) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found",
+        });
+      }
+      // Use the device's _id for the schedule query
+      query.deviceId = device._id;
+    }
+
     if (advertisementId) {
-      // Check if user has access to this advertisement
       const ad = await Advertisement.findOne({ 
         _id: advertisementId, 
-        isDeleted: false,
+        isDeleted: false
       });
       if (!ad) {
-        return res.status(403).json({
+        return res.status(404).json({
           success: false,
-          message: "Access denied to this advertisement",
+          message: "Advertisement not found",
         });
       }
       query.advertisementIds = advertisementId;
     }
 
-    // if (deviceId) {
-    //   const device = await Device.findOne({ 
-    //     deviceId: deviceId, 
-    //     isDeleted: false,
-    //   });
-    //   if (!device) {
-    //     return res.status(404).json({
-    //       success: false,
-    //       message: "Device not found or access denied",
-    //     });
-    //   }
-    //   query.deviceId = device._id;
-    // }
     if (date) {
       const searchDate = new Date(date);
       const nextDay = new Date(searchDate);
@@ -111,20 +112,18 @@ const getSchedulesByFilter = async (req, res) => {
         $gte: searchDate,
         $lt: nextDay,
       };
-
-      console.log("query :", query);
     }
 
     const schedules = await Schedule.find(query)
-      .populate("deviceId", "name description ")
-      .populate("advertisementIds", "name description videoUrl orientation ");
+      .populate("deviceId", "name description deviceId")
+      .populate("advertisementIds", "name description videoUrl orientation");
 
     res.status(200).json({
       success: true,
       data: schedules,
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -527,13 +526,15 @@ const deleteScheduleById = async (req, res) => {
 };
 
 module.exports = {
-  getSchedulesByFilter,
-  createSchedule,
   getAllSchedules,
+  getSchedulesByFilter,
+  updateScheduleByDeviceId,
+  createSchedule,
   updateSchedule,
   deleteSchedule,
   archiveSchedule,
   getArchivedSchedules,
   getScheduleById,
   deleteScheduleById
+  
 };

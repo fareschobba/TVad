@@ -48,12 +48,14 @@ const getAllDevices = async (req, res) => {
 
     let query = {};
     // If not admin, only show user's devices
-    if (userRole !== 'admin') {
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
       query.userId = userId;
     }
 
     const devices = await Device.find(query)
-      .populate('userId', 'username email');
+      .populate('userId', 'username email _id'); // Make sure _id is included in population
+
+    console.log('Fetched devices:', devices); // Add logging
 
     res.status(200).json({
       success: true,
@@ -61,6 +63,7 @@ const getAllDevices = async (req, res) => {
       data: devices
     });
   } catch (error) {
+    console.error('Error in getAllDevices:', error); // Add error logging
     res.status(500).json({
       success: false,
       message: error.message
@@ -122,15 +125,10 @@ const getDeviceByNameOrId = async (req, res) => {
 const updateDevice = async (req, res) => {
   try {
     const { name, description, orientation } = req.body;
-    const userId = req.user._id;
-    const userRole = req.user.role;
     
     let query = { _id: req.params.id, isDeleted: false };
     // If not admin, only allow updating own devices
-    if (userRole !== 'admin') {
-      query.userId = userId;
-    }
-
+  
     if (name) {
       const existingDevice = await Device.findOne({
         name,

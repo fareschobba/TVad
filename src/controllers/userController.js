@@ -218,7 +218,10 @@ const changeUserRole = async (req, res) => {
 // Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await AdminUser.find({ isDeleted: false })
+    const users = await AdminUser.find({ 
+      isDeleted: false,
+      role: { $ne: 'SUPERADMIN' } // Exclude SUPERADMIN users
+    })
       .select('-password')
       .lean();
 
@@ -362,6 +365,74 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+const updateUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { username, email, phoneNumber, isActive, role } = req.body;
+
+    // Check if user exists
+    const user = await AdminUser.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Prevent self-role change
+    if (role && user._id.toString() === req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You cannot modify your own role'
+      });
+    }
+
+    // Validate role if provided
+    if (role && !['admin', 'client'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role. Allowed roles are: admin, client'
+      });
+    }
+
+    // Update user fields
+    const updates = {
+      ...(username && { username }),
+      ...(email && { email }),
+      ...(phoneNumber && { phoneNumber }),
+      ...(typeof isActive === 'boolean' && { isActive }),
+      ...(role && { role })
+    };
+
+    // Update user
+    const updatedUser = await AdminUser.findByIdAndUpdate(
+      userId,
+      updates,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    res.status(200).json({
+      success: true,
+      message: 'User updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({
+        success: false,
+        message: `This ${field} is already in use`
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createClient,
   updateProfile,
@@ -371,7 +442,8 @@ module.exports = {
   getAllUsers,
   getUserWithVideos,
   createAdvertisement,
-  getCurrentUser
+  getCurrentUser,
+  updateUser
 };
 
 

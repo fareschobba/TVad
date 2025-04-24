@@ -9,7 +9,8 @@ const {
   changeUserRole,
   getAllUsers,
   getUserWithVideos,
-  getCurrentUser
+  getCurrentUser,
+  updateUser
 } = require('../controllers/userController');
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.post('/Create-client', protect, isAdmin, createClient);
 router.patch('/clients/:userId/toggle-status', protect, isAdmin, toggleAccountStatus);
 router.post('/reset-account-by-admin', protect, isAdmin, resetUserAccount);
 router.patch('/clients/:userId/role', protect, isAdmin, changeUserRole);
+router.put('/:userId', protect, isAdmin, updateUser); // Add this line for updateUser
 
 // get User/users with videos
 router.get('/', protect, isAdmin, getAllUsers);
