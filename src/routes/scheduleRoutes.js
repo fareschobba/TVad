@@ -15,8 +15,9 @@ const {
 const router = express.Router();
 
 // Public routes
-router.get('/:id', getAllSchedules);
+router.get('schedules/:id', getAllSchedules);
 router.get('/searchAd', getSchedulesByFilter);
+
 
 // Protected routes
 router.post('/', protect, createSchedule);
