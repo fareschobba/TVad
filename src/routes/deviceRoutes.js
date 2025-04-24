@@ -15,8 +15,8 @@ const {
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(protect);
+// // All routes require authentication
+// router.use(protect);
 
 // Routes accessible by both admin and regular users
 router.get('/search', getDeviceByNameOrId);
