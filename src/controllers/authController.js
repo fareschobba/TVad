@@ -39,17 +39,37 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate token with forcePasswordChange status
-    const token = generateToken(user._id, user.role, user.forcePasswordChange);
+    // 3. Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is inactive. Please contact administrator.'
+      });
+    }
+
+    // 4. Generate token with all necessary user information
+    const token = jwt.sign(
+      { 
+        id: user._id,
+        role: user.role,
+        forcePasswordChange: user.forcePasswordChange,
+        isActive: user.isActive
+      }, 
+      process.env.JWT_SECRET, 
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN,
+      }
+    );
 
     res.status(200).json({
       success: true,
       token,
-      forcePasswordChange: user.forcePasswordChange,
       user: {
         id: user._id,
         username: user.username,
-        role: user.role
+        role: user.role,
+        isActive: user.isActive,
+        forcePasswordChange: user.forcePasswordChange
       }
     });
   } catch (error) {
