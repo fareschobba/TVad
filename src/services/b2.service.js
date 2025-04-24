@@ -208,7 +208,7 @@ class B2Service {
         contentType: contentType,
         size: data.contentLength,
         uploadDate: new Date().toISOString(),
-        url: `${this.downloadUrl}/file/${this.bucketName}/${encodeURIComponent(data.fileName)}?Authorization=${downloadAuth}`,
+        url: `${this.downloadUrl}/file/${this.bucketName}/${encodeURIComponent(data.fileName)}`, //?Authorization=${downloadAuth}
         queueTime: queueStartTime ? Date.now() - queueStartTime : 0
       };
 
@@ -389,7 +389,7 @@ class B2Service {
       });
 
       const authToken = response.data.authorizationToken;
-      return `${this.downloadUrl}/file/${this.bucketName}/${encodeURIComponent(fileInfo.fileName)}?Authorization=${authToken}`;
+      return `${this.downloadUrl}/file/${this.bucketName}/${encodeURIComponent(fileInfo.fileName)}`; //?Authorization=${authToken}
     } catch (error) {
       console.error('Failed to get authorized download URL:', error.response?.data || error.message);
       throw new Error('Failed to get authorized download URL from B2');
