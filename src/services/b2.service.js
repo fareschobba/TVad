@@ -1,15 +1,27 @@
+const dotenv = require('dotenv');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 const crypto = require('crypto');
 
+// Configure dotenv
+dotenv.config();
+
 class B2Service {
   constructor() {
-    this.applicationKeyId = "d7c95ef029b6";
-    this.applicationKey = "0059cbe6c6c7dcf4c17d9d17409d5c106e1067a6b4";
-    this.bucketId = "7dc7dcd9251e2f0092690b16";
-    this.bucketName = "testSiter";
+    this.applicationKeyId = process.env.B2_APPLICATION_KEY_ID;
+    this.applicationKey = process.env.B2_APPLICATION_KEY;
+    this.bucketId = process.env.B2_BUCKET_ID;
+    this.bucketName = process.env.B2_BUCKET_NAME;
+    
+    // Add console.log to debug
+    console.log('B2 Config:', {
+      keyId: this.applicationKeyId,
+      bucketId: this.bucketId,
+      bucketName: this.bucketName,
+      applicationKey: this.applicationKey
+    });
     
     this.authToken = null;
     this.apiUrl = null;
@@ -398,4 +410,6 @@ class B2Service {
 }
 
 module.exports = new B2Service();
+
+
 
