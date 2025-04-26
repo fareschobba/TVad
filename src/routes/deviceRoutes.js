@@ -15,13 +15,15 @@ const {
 
 const router = express.Router();
 
+
+router.patch('/:id/isPaired', pairDevice);
 // All routes require authentication
 router.use(protect);
 
 // Routes accessible by both admin and regular users
 router.get('/search', getDeviceByNameOrId);
 router.get('/:id', getDeviceById);
-router.patch('/:id/isPaired', pairDevice);
+
 router.patch('/:id/unpair', unpair);
 router.patch('/unarchive/:id', protect, undeleteDevice); // Add this line for unarchiving
 
