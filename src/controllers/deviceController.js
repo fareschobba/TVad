@@ -277,14 +277,14 @@ const undeleteDevice = async (req, res) => {
 const pairDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user._id;
-    const userRole = req.user.role;
+    // const userId = req.user._id;
+    // const userRole = req.user.role;
 
     let query = { deviceId: id, isDeleted: false };
     // If not admin, only allow pairing own devices
-    if (userRole !== 'admin') {
-      query.userId = userId;
-    }
+    // if (userRole !== 'admin') {
+    //   query.userId = userId;
+    // }
 
     const device = await Device.findOne(query);
 
