@@ -40,7 +40,7 @@ const adminUserSchema = new mongoose.Schema({
   },
   forcePasswordChange: {
     type: Boolean,
-    default: false
+    default: true
   }
 });
 
