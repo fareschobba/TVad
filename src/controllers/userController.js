@@ -33,9 +33,10 @@ const createClient = async (req, res) => {
       message: 'Client account created successfully'
     });
   } catch (error) {
+    console.log(error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'This user already exists or there was an error creating the account. Please try again with different credentials.'
     });
   }
 };
@@ -67,7 +68,7 @@ const updateProfile = async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'Failed to update profile. Please check your information and try again.'
     });
   }
 };
@@ -102,7 +103,7 @@ const toggleAccountStatus = async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'Unable to change account status. Please try again later.'
     });
   }
 };
@@ -118,15 +119,7 @@ const resetUserAccount = async (req, res) => {
       });
     }
 
-    if(req.user?.role) {
-      
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Permission refusée. Droits administrateur requis.'
-      });
-    }
-  }
+    
     // Find the user by email
     const user = await AdminUser.findOne({ email, isDeleted: false });
     if (!user) {
@@ -158,7 +151,7 @@ const resetUserAccount = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: `Erreur lors de la réinitialisation du compte: ${error.message}`
+      message: 'Unable to reset account. Please verify the email address and try again.'
     });
   }
 };
@@ -210,7 +203,7 @@ const changeUserRole = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: `Erreur lors du changement de rôle: ${error.message}`
+      message: 'Failed to change user role. Please try again later.'
     });
   }
 };
@@ -233,7 +226,7 @@ const getAllUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve user list. Please try again later.'
     });
   }
 };
@@ -289,7 +282,7 @@ const getUserWithVideos = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve user and video information. Please try again later.'
     });
   }
 };
@@ -317,7 +310,7 @@ const createAdvertisement = async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'Failed to create advertisement. Please check your input and try again.'
     });
   }
 };

@@ -28,7 +28,7 @@ exports.getVideoInfo = async (req, res) => {
     console.error('Error getting video info:', error);
     res.status(500).json({
       error: 'Failed to get video info',
-      message: error.message
+      message: 'Unable to retrieve video information. Please check the provided URL and try again.'
     });
   }
 };
@@ -61,7 +61,7 @@ exports.downloadVideo = async (req, res) => {
     console.error('Error downloading video:', error);
     res.status(500).json({
       error: 'Failed to download video',
-      message: error.message
+      message: 'Unable to download the video. Please check the provided URL and try again.'
     });
   }
 };
