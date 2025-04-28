@@ -19,7 +19,7 @@ const advertisementSchema = new mongoose.Schema({
   orientation: {
     type: String,
     required: [true, 'Orientation is required'],
-    enum: ['portrait', 'landscape']
+    
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,

@@ -89,7 +89,7 @@ const getAllAdvertisements = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve advertisements. Please try again later.'
     });
   }
 };
@@ -97,12 +97,13 @@ const getAllAdvertisements = async (req, res) => {
 // Simple advertisement update (name and description only)
 const updateAdvertisementSimple = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, orientation } = req.body;
     const updateData = {};
 
     // Build update object with only provided fields
     if (name) updateData.name = name;
     if (description) updateData.description = description;
+    updateData.orientation = orientation
 
     // Validate that at least one field is provided
     if (Object.keys(updateData).length === 0) {
@@ -140,7 +141,7 @@ const updateAdvertisementSimple = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Failed to update advertisement details. Please verify your input and try again.'
     });
   }
 };
@@ -150,7 +151,9 @@ const updateAdvertisementComplex = async (req, res) => {
   try {
     const { name, description, orientation, youtubeUrl } = req.body;
     const advertisementId = req.params.id;
-
+console.log(
+  name,description,orientation,youtubeUrl
+)
     // Find the existing advertisement
     const existingAd = await Advertisement.findOne({ 
       _id: advertisementId,
@@ -169,15 +172,8 @@ const updateAdvertisementComplex = async (req, res) => {
     const updateData = {};
     if (name) updateData.name = name;
     if (description) updateData.description = description;
-    if (orientation) {
-      if (!['portrait', 'landscape'].includes(orientation)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid orientation. Must be either "portrait" or "landscape"'
-        });
-      }
-      updateData.orientation = orientation;
-    }
+    updateData.orientation = orientation
+    console.log(updateData)
 
     // Handle file update based on input type
     if (youtubeUrl && req.file) {
@@ -225,10 +221,11 @@ const updateAdvertisementComplex = async (req, res) => {
         updateData.fileName = result.fileName;
         updateData.fileId = result.fileId;
         updateData.uploadType = 'youtube';
+
         updateData.sourceUrl = youtubeUrl;
 
       } catch (error) {
-        throw new Error(`YouTube processing failed: ${error.message}`);
+        throw new Error('Failed to process YouTube video. Please verify the URL and try again.');
       }
     } else if (req.file) {
       // Handle direct file upload
@@ -259,7 +256,7 @@ const updateAdvertisementComplex = async (req, res) => {
         if (req.file.path) {
           await unlinkAsync(req.file.path).catch(console.error);
         }
-        throw uploadError;
+        throw new Error('Failed to upload video file. Please try again with a different file.');
       }
     } else if (!existingAd.videoUrl) {
       return res.status(400).json({
@@ -288,7 +285,7 @@ const updateAdvertisementComplex = async (req, res) => {
     console.error('Error updating advertisement:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Failed to update advertisement and media content. Please check your file or URL and try again.',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
@@ -331,7 +328,7 @@ const getAdvertisementById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve advertisement details. Please try again later.'
     });
   }
 };
@@ -406,7 +403,7 @@ const getAdvertisementsByUserId = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve user advertisements. Please try again later.'
     });
   }
 };
@@ -479,7 +476,7 @@ const completeAdvertisement = async (req, res) => {
     console.error('Error completing advertisement:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to complete advertisement creation. Please try again later.',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
@@ -516,7 +513,8 @@ const deleteAdvertisement = async (req, res) => {
     console.error('Error deleting advertisement:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to delete advertisement. Please try again later.',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -543,7 +541,8 @@ const undeleteAdvertisement = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to restore advertisement. Please try again later.',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

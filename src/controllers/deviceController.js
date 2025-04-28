@@ -35,7 +35,7 @@ const createDevice = async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'Unable to create device. Please check your input and try again.'
     });
   }
 };
@@ -66,7 +66,7 @@ const getAllDevices = async (req, res) => {
     console.error('Error in getAllDevices:', error); // Add error logging
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve devices. Please try again later.'
     });
   }
 };
@@ -116,7 +116,7 @@ const getDeviceByNameOrId = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to find device. Please verify the device name or ID and try again.'
     });
   }
 };
@@ -164,7 +164,7 @@ const updateDevice = async (req, res) => {
   } catch (error) {
     res.status(400).json({
       success: false,
-      message: error.message
+      message: 'Unable to update device. Please check your input and try again.'
     });
   }
 };
@@ -199,7 +199,7 @@ const deleteDevice = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to delete device. Please try again later.'
     });
   }
 };
@@ -232,7 +232,7 @@ const getDeviceById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to retrieve device details. Please try again later.'
     });
   }
 };
@@ -268,7 +268,7 @@ const undeleteDevice = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to restore device. Please try again later.'
     });
   }
 };
@@ -312,7 +312,7 @@ const pairDevice = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to pair device. Please try again later.'
     });
   }
 };
@@ -356,7 +356,7 @@ const unpair = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Unable to unpair device. Please try again later.'
     });
   }
 };

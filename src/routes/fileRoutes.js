@@ -46,13 +46,13 @@ const uploadMiddleware = (req, res, next) => {
       // A Multer error occurred when uploading
       return res.status(400).json({
         error: 'Upload error',
-        message: err.message
+        message: 'Invalid file type. Only video files are allowed.'
       });
     } else if (err) {
       // An unknown error occurred
       return res.status(500).json({
         error: 'Server error',
-        message: err.message
+        message: 'Unable to process the file. Please try again.'
       });
     }
     // Everything went fine

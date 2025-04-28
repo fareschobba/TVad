@@ -11,7 +11,7 @@ const checkScheduleOverlap = async (
   currentScheduleId = null
 ) => {
   if (!playTime || playTime <= 0) {
-    throw new Error("playTime must be greater than 0");
+    throw new Error('Schedule duration must be greater than 0 minutes.');
   }
 
   const endTime = new Date(new Date(startTime).getTime() + playTime * 1000);
@@ -61,7 +61,7 @@ const getAllSchedules = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to retrieve schedules. Please try again later.'
     });
   }
 };
@@ -125,7 +125,7 @@ const getSchedulesByFilter = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to retrieve filtered schedules. Please check your filter criteria and try again.'
     });
   }
 };
@@ -182,7 +182,7 @@ const updateScheduleByDeviceId = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to update device schedule. Please verify the device ID and schedule details.'
     });
   }
 };
@@ -274,7 +274,7 @@ const createSchedule = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to create schedule. Please check your input and try again.'
     });
   }
 };
@@ -380,7 +380,7 @@ const updateSchedule = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to update schedule. Please verify the schedule details and try again.'
     });
   }
 };
@@ -421,7 +421,7 @@ const deleteSchedule = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to delete schedule. Please try again later.'
     });
   }
 };
@@ -496,7 +496,7 @@ const getScheduleById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Unable to retrieve schedule details. Please try again later.'
     });
   }
 };
