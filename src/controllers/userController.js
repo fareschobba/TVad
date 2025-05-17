@@ -44,8 +44,7 @@ const createClient = async (req, res) => {
 // Update client profile
 const updateProfile = async (req, res) => {
   try {
-    const { username, email, phoneNumber } = req.body;
-    const userId = req.user.id;
+    const { username, email, phoneNumber,userId } = req.body;
 
     const user = await AdminUser.findById(userId);
     if (!user) {
@@ -66,6 +65,7 @@ const updateProfile = async (req, res) => {
       message: 'Profile updated successfully'
     });
   } catch (error) {
+    console.log(error)
     res.status(400).json({
       success: false,
       message: 'Failed to update profile. Please check your information and try again.'
