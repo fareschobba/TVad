@@ -64,6 +64,7 @@ const scheduleRoutes = require('./routes/scheduleRoutes');
 const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
 const userRoutes = require('./routes/userRoutes');
+const cloudinaryAdvertisementRoutes = require('./routes/cloudinaryAdvertisementRoutes');
 
 // Use routes
 app.use('/api/devices', deviceRoutes);
@@ -72,6 +73,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cloudinary-advertisements', cloudinaryAdvertisementRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
