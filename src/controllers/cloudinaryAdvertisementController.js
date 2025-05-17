@@ -413,6 +413,7 @@ const deleteAdvertisement = async (req, res) => {
   try {
     const { advertisementId } = req.params;
 
+    // First check if advertisement exists
     const advertisement = await Advertisement.findOne({
       _id: advertisementId,
       //uploadType: { $in: ['cloudinary', 'cloudinary-youtube'] }
@@ -425,23 +426,51 @@ const deleteAdvertisement = async (req, res) => {
       });
     }
 
-    // Delete file from Cloudinary
+    // Track file deletion status
+    let fileDeleted = false;
+    
+    // Delete file from Cloudinary if it exists
     if (advertisement.fileId) {
-      await cloudinaryService.deleteFile(advertisement.fileId);
+      try {
+        // First try to get file info to confirm it exists
+        await cloudinaryService.getFileInfo(advertisement.fileId);
+        // If file exists, delete it
+        await cloudinaryService.deleteFile(advertisement.fileId);
+        console.log('Successfully deleted file:', advertisement.fileId);
+        fileDeleted = true;
+      } catch (fileError) {
+        return res.status(400).json({
+      success: false,
+      message: 'advertisement not found on cloudinary'
+    });
+      }
     }
 
-    // Soft delete the advertisement
-    advertisement.isDeleted = true;
-    await advertisement.save();
+    // Permanently delete the advertisement from database
+    const deleteResult = await Advertisement.findByIdAndDelete(advertisementId);
+    
+    // Check if advertisement was actually deleted
+    if (!deleteResult) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advertisement could not be deleted or was already removed'
+      });
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Advertisement deleted successfully'
+      message: 'Advertisement permanently deleted',
+      details: {
+        advertisementId: advertisementId,
+        fileDeleted: advertisement.fileId ? fileDeleted : 'No file associated'
+      }
     });
   } catch (error) {
+    console.error('Error deleting advertisement:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to delete advertisement. Please try again later.'
+      message: 'Failed to delete advertisement. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
