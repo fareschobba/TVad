@@ -12,7 +12,9 @@ const {
   getAdvertisementsByUserId,
   undeleteAdvertisement,
   createAdvertisementWithFile,
-  createAdvertisementWithYouTube
+  createAdvertisementWithYouTube,
+  createAdvertisementWithProgress,
+  createAdvertisementWithYouTubeProgress
 } = require('../controllers/cloudinaryAdvertisementController');
 
 const router = express.Router();
@@ -43,5 +45,8 @@ router.delete('/:advertisementId', protect, deleteAdvertisement);
 // Additional routes for file and YouTube uploads
 router.post('/upload', protect, upload.single('video'), createAdvertisementWithFile);
 router.post('/youtube', protect, createAdvertisementWithYouTube);
+router.post('/upload-with-progress', protect, upload.single('video'), createAdvertisementWithProgress);
+router.post('/youtube-with-progress', protect, createAdvertisementWithYouTubeProgress);
 
 module.exports = router;
+

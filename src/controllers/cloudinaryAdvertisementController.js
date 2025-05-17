@@ -601,6 +601,186 @@ const createAdvertisementWithYouTube = async (req, res) => {
   }
 };
 
+// Create advertisement with progress tracking
+const createAdvertisementWithProgress = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    // Validate file type
+    if (!isVideoFile(req.file.mimetype)) {
+      await fs.unlink(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only video files are allowed.'
+      });
+    }
+
+    // Set up SSE for progress updates
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    // Send progress updates
+    const sendProgress = (percentage, bytesUploaded, totalBytes) => {
+      res.write(`data: ${JSON.stringify({
+        event: 'progress',
+        percentage,
+        bytesUploaded,
+        totalBytes
+      })}\n\n`);
+    };
+
+    // Upload file to Cloudinary with progress tracking
+    const uploadResult = await cloudinaryService.uploadFileWithProgress(
+      req.file.path,
+      req.file.originalname,
+      req.file.mimetype,
+      sendProgress
+    );
+
+    // Create advertisement record
+    const advertisement = await Advertisement.create({
+      name: req.body.name || req.file.originalname,
+      description: req.body.description || 'Pending description',
+      videoUrl: uploadResult.url,
+      fileName: uploadResult.fileName,
+      fileId: uploadResult.fileId,
+      userId: req.user._id,
+      orientation: req.body.orientation || 'landscape',
+      status: 'pending',
+      uploadType: 'cloudinary',
+      uploadDate: new Date()
+    });
+
+    // Clean up temporary file
+    await fs.unlink(req.file.path);
+
+    // Send completion event
+    res.write(`data: ${JSON.stringify({
+      event: 'complete',
+      success: true,
+      message: 'Advertisement created successfully',
+      data: {
+        advertisementId: advertisement._id,
+        fileInfo: uploadResult
+      }
+    })}\n\n`);
+
+    // End the response
+    res.end();
+  } catch (error) {
+    // Clean up temporary file if it exists
+    if (req.file?.path) {
+      await fs.unlink(req.file.path).catch(console.error);
+    }
+
+    // Send error event
+    res.write(`data: ${JSON.stringify({
+      event: 'error',
+      success: false,
+      message: 'Failed to create advertisement. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })}\n\n`);
+
+    // End the response
+    res.end();
+  }
+};
+
+// Create advertisement with YouTube URL and progress tracking
+const createAdvertisementWithYouTubeProgress = async (req, res) => {
+  try {
+    const { youtubeUrl, name, description, orientation } = req.body;
+
+    if (!youtubeUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'YouTube URL is required'
+      });
+    }
+
+    // Validate YouTube URL
+    if (!await cloudinaryYoutubeService.validateYouTubeUrl(youtubeUrl)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid YouTube URL'
+      });
+    }
+
+    // Set up SSE for progress updates
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    // Send progress updates
+    const sendProgress = (stage, percentage, bytesProcessed, totalBytes) => {
+      res.write(`data: ${JSON.stringify({
+        event: 'progress',
+        stage,
+        percentage,
+        bytesProcessed,
+        totalBytes
+      })}\n\n`);
+    };
+
+    // Download and process YouTube video with progress tracking
+    const result = await cloudinaryYoutubeService.downloadVideoWithProgress(
+      youtubeUrl, 
+      'highest',
+      sendProgress
+    );
+
+    // Create advertisement record
+    const advertisement = await Advertisement.create({
+      name: name || result.title,
+      description: description || 'Pending description',
+      videoUrl: result.url,
+      fileName: result.fileName,
+      fileId: result.fileId,
+      userId: req.user._id,
+      orientation: orientation || 'landscape',
+      status: 'pending',
+      uploadType: 'cloudinary-youtube',
+      sourceUrl: youtubeUrl,
+      uploadDate: new Date()
+    });
+
+    // Send completion event
+    res.write(`data: ${JSON.stringify({
+      event: 'complete',
+      success: true,
+      message: 'Advertisement created successfully with YouTube video',
+      data: {
+        advertisementId: advertisement._id,
+        fileInfo: result
+      }
+    })}\n\n`);
+
+    // End the response
+    res.end();
+  } catch (error) {
+    // Send error event
+    res.write(`data: ${JSON.stringify({
+      event: 'error',
+      success: false,
+      message: 'Failed to create advertisement from YouTube. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })}\n\n`);
+
+    // End the response
+    res.end();
+  }
+};
+
 module.exports = {
   getAllAdvertisements,
   getAdvertisementById,
@@ -611,5 +791,10 @@ module.exports = {
   deleteAdvertisement,
   undeleteAdvertisement,
   createAdvertisementWithFile,
-  createAdvertisementWithYouTube
+  createAdvertisementWithYouTube,
+  createAdvertisementWithProgress,
+  createAdvertisementWithYouTubeProgress
 };
+
+
+
