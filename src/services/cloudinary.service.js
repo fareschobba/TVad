@@ -2,6 +2,8 @@ const dotenv = require('dotenv');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs/promises');
 const { promisify } = require('util');
+const { createReadStream } = require('fs');
+const streamifier = require('streamifier');
 
 // Configure dotenv
 dotenv.config();
@@ -17,6 +19,110 @@ cloudinary.config({
 class CloudinaryService {
   constructor() {
     this.folder = 'advertisements';
+  }
+
+  async uploadFileWithProgress(filePath, fileName, contentType, progressCallback) {
+    return new Promise((resolve, reject) => {
+      // Create upload stream with progress monitoring
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          public_id: fileName.split('.')[0],
+          folder: this.folder,
+          overwrite: true
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+          
+          resolve({
+            fileId: result.public_id,
+            fileName: fileName,
+            contentType: contentType,
+            size: result.bytes,
+            uploadDate: new Date().toISOString(),
+            url: result.secure_url
+          });
+        }
+      );
+
+      // Create readable stream from file
+      const readStream = createReadStream(filePath);
+      
+      // Track total file size and bytes uploaded
+      const fileSize = fs.stat(filePath).then(stats => stats.size);
+      let bytesUploaded = 0;
+      
+      // Monitor progress
+      readStream.on('data', (chunk) => {
+        bytesUploaded += chunk.length;
+        
+        fileSize.then(size => {
+          const percentage = Math.round((bytesUploaded / size) * 100);
+          if (progressCallback) {
+            progressCallback(percentage, bytesUploaded, size);
+          }
+        });
+      });
+
+      // Handle errors
+      readStream.on('error', (err) => reject(err));
+      
+      // Pipe the file to the upload stream
+      readStream.pipe(uploadStream);
+    });
+  }
+
+  async uploadBufferWithProgress(buffer, fileName, contentType, progressCallback) {
+    return new Promise((resolve, reject) => {
+      // Create upload stream with progress monitoring
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          public_id: fileName.split('.')[0],
+          folder: this.folder,
+          overwrite: true
+        },
+        (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+          
+          resolve({
+            fileId: result.public_id,
+            fileName: fileName,
+            contentType: contentType,
+            size: result.bytes,
+            uploadDate: new Date().toISOString(),
+            url: result.secure_url
+          });
+        }
+      );
+
+      // Track total buffer size and bytes uploaded
+      const bufferSize = buffer.length;
+      let bytesUploaded = 0;
+      
+      // Create a readable stream from the buffer with progress tracking
+      const bufferStream = streamifier.createReadStream(buffer);
+      
+      // Monitor progress
+      bufferStream.on('data', (chunk) => {
+        bytesUploaded += chunk.length;
+        const percentage = Math.round((bytesUploaded / bufferSize) * 100);
+        
+        if (progressCallback) {
+          progressCallback(percentage, bytesUploaded, bufferSize);
+        }
+      });
+
+      // Handle errors
+      bufferStream.on('error', (err) => reject(err));
+      
+      // Pipe the buffer stream to the upload stream
+      bufferStream.pipe(uploadStream);
+    });
   }
 
   async uploadFile(filePath, fileName, contentType) {
