@@ -361,6 +361,285 @@ const unpair = async (req, res) => {
   }
 };
 
+// Get device list for dashboard (simplified format)
+const getDeviceList = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    let query = { isDeleted: false };
+    // If not admin, only show user's devices
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+
+    const devices = await Device.find(query)
+      .populate('userId', 'username email _id')
+      .select('deviceId name description location')
+      .lean();
+
+    // Format devices for dashboard compatibility
+    const formattedDevices = devices.map(device => ({
+      deviceId: device.deviceId,
+      name: device.name,
+      location: device.description || device.location || 'No location specified'
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: formattedDevices.length,
+      data: formattedDevices
+    });
+  } catch (error) {
+    console.error('Error in getDeviceList:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to retrieve device list. Please try again later.'
+    });
+  }
+};
+
+// Clear device cache via API
+const clearDeviceCache = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { cacheType = 'all' } = req.body;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    // Verify device exists and user has access
+    let query = { deviceId, isDeleted: false };
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query);
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found or access denied'
+      });
+    }
+
+    const requestId = `cache_api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Get Socket.IO instance
+    const socketConfig = require('../config/socket');
+    const io = socketConfig.getIO();
+
+    if (!io) {
+      return res.status(503).json({
+        success: false,
+        message: 'Socket.IO service unavailable'
+      });
+    }
+
+    // Emit cache clear request
+    io.emit(`clearCache/${deviceId}`, {
+      cacheType,
+      requestId,
+      adminSocketId: `api_${userId}`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Cache clear request sent to device',
+      data: {
+        deviceId,
+        cacheType,
+        requestId,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in clearDeviceCache:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to clear device cache. Please try again later.'
+    });
+  }
+};
+
+// Request device health check via API
+const requestDeviceHealthCheck = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    // Verify device exists and user has access
+    let query = { deviceId, isDeleted: false };
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query);
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found or access denied'
+      });
+    }
+
+    const requestId = `health_api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Get Socket.IO instance
+    const socketConfig = require('../config/socket');
+    const io = socketConfig.getIO();
+
+    if (!io) {
+      return res.status(503).json({
+        success: false,
+        message: 'Socket.IO service unavailable'
+      });
+    }
+
+    // Emit health check request
+    io.emit(`healthCheck/${deviceId}`, {
+      requestId,
+      adminSocketId: `api_${userId}`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Health check request sent to device',
+      data: {
+        deviceId,
+        requestId,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in requestDeviceHealthCheck:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to request device health check. Please try again later.'
+    });
+  }
+};
+
+// Clean USB storage on device
+const cleanUsbStorage = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { cleanType = 'all' } = req.body;
+    const userId = req.user?._id || 'anonymous';
+
+    // Validate device exists
+    const device = await Device.findOne({
+      deviceId,
+      isDeleted: false
+    });
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found'
+      });
+    }
+
+    // Generate unique request ID
+    const requestId = `usb_api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Get Socket.IO instance
+    const socketConfig = require('../config/socket');
+    const io = socketConfig.getIO();
+
+    if (!io) {
+      return res.status(503).json({
+        success: false,
+        message: 'Socket.IO service unavailable'
+      });
+    }
+
+    // Emit USB storage clean request
+    io.emit(`cleanUsbStorage/${deviceId}`, {
+      cleanType,
+      requestId,
+      adminSocketId: `api_${userId}`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'USB storage clean request sent to device',
+      data: {
+        deviceId,
+        cleanType,
+        requestId,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in cleanUsbStorage:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to clean USB storage. Please try again later.'
+    });
+  }
+};
+
+// Restart app via API
+const restartApp = async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const userId = req.user._id;
+    const userRole = req.user.role;
+
+    // Verify device exists and user has access
+    let query = { deviceId, isDeleted: false };
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+
+    const device = await Device.findOne(query);
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: 'Device not found or access denied'
+      });
+    }
+
+    const requestId = `restart_api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Get Socket.IO instance
+    const socketConfig = require('../config/socket');
+    const io = socketConfig.getIO();
+
+    if (!io) {
+      return res.status(503).json({
+        success: false,
+        message: 'Socket.IO service unavailable'
+      });
+    }
+
+    // Emit app restart request
+    io.emit(`restartApp/${deviceId}`, {
+      requestId,
+      adminSocketId: `api_${userId}`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'App restart request sent to device',
+      data: {
+        deviceId,
+        requestId,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in restartApp:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to restart app. Please try again later.'
+    });
+  }
+};
+
 module.exports = {
   createDevice,
   getAllDevices,
@@ -370,5 +649,10 @@ module.exports = {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair
+  unpair,
+  getDeviceList,
+  clearDeviceCache,
+  requestDeviceHealthCheck,
+  cleanUsbStorage,
+  restartApp
 };

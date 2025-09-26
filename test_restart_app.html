@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Restart Test</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .connection-status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 App Restart Test</h1>
+        
+        <div id="connectionStatus" class="connection-status disconnected">
+            Disconnected from server
+        </div>
+
+        <div class="form-group">
+            <label for="deviceId">Device ID:</label>
+            <input type="text" id="deviceId" placeholder="Enter device ID (e.g., DEVICE_123)" value="DEVICE_123">
+        </div>
+
+        <div class="form-group">
+            <button onclick="restartApp()" id="restartBtn" disabled>
+                🔄 Restart App
+            </button>
+            <button onclick="clearLog()">
+                🗑️ Clear Log
+            </button>
+        </div>
+
+        <div id="status" class="status info">
+            Enter device ID and click "Restart App" to test the functionality
+        </div>
+
+        <div class="log" id="log">
+            <div>Test page loaded. Connecting to server...</div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+
+        // Initialize socket connection
+        function initSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                updateConnectionStatus(true);
+                addLog('✅ Connected to server');
+                updateUI();
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus(false);
+                addLog('❌ Disconnected from server');
+                updateUI();
+            });
+
+            socket.on('connect_error', (error) => {
+                addLog(`❌ Connection error: ${error.message}`);
+            });
+
+            // Listen for app restart responses
+            socket.on('appRestarted', (data) => {
+                addLog(`📨 Received restart response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    updateStatus(`✅ ${data.message}`, 'success');
+                } else {
+                    updateStatus(`❌ ${data.message}`, 'error');
+                }
+
+                // Re-enable button
+                const btn = document.getElementById('restartBtn');
+                btn.innerHTML = '🔄 Restart App';
+                btn.disabled = false;
+            });
+        }
+
+        // Restart app function
+        function restartApp() {
+            const deviceId = document.getElementById('deviceId').value.trim();
+
+            if (!deviceId) {
+                alert('Please enter a device ID');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `restart_test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('restartBtn');
+            btn.innerHTML = '🔄 Restarting...';
+            btn.disabled = true;
+
+            updateStatus('Sending restart request...', 'info');
+
+            // Send restart request
+            const requestData = {
+                deviceId,
+                requestId
+            };
+
+            addLog(`📤 Sending restart request: ${JSON.stringify(requestData, null, 2)}`);
+            socket.emit('restartApp', requestData);
+
+            // Timeout to re-enable button
+            setTimeout(() => {
+                if (btn.disabled) {
+                    btn.innerHTML = '🔄 Restart App';
+                    btn.disabled = false;
+                    updateStatus('Request timeout - no response received', 'error');
+                }
+            }, 15000);
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.textContent = 'Connected to server';
+                statusDiv.className = 'connection-status connected';
+            } else {
+                statusDiv.textContent = 'Disconnected from server';
+                statusDiv.className = 'connection-status disconnected';
+            }
+        }
+
+        // Update status message
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // Add log entry
+        function addLog(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Clear log
+        function clearLog() {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = '<div>Log cleared</div>';
+        }
+
+        // Update UI state
+        function updateUI() {
+            const connected = socket && socket.connected;
+            const deviceId = document.getElementById('deviceId').value.trim();
+            
+            document.getElementById('restartBtn').disabled = !connected || !deviceId;
+        }
+
+        // Handle device ID input
+        document.getElementById('deviceId').addEventListener('input', updateUI);
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initSocket();
+            addLog('🚀 App Restart Test initialized');
+        });
+    </script>
+</body>
+</html>

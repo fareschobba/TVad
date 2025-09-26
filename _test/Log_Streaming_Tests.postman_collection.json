@@ -1,0 +1,409 @@
+{
+  "info": {
+    "name": "Log Streaming API Tests",
+    "description": "Test collection for Socket.IO log streaming system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "TEST_DEVICE_001",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "test-session-123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('token', response.token);",
+                  "    pm.test('Login successful', () => {",
+                  "        pm.expect(response.success).to.be.true;",
+                  "        pm.expect(response.token).to.exist;",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Login failed', () => {",
+                  "        pm.expect.fail('Login request failed');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login to get JWT token. Update email/password as needed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Log System Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if server is running"
+          }
+        },
+        {
+          "name": "Log System Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "status"]
+            },
+            "description": "Get current log streaming system status"
+          }
+        },
+        {
+          "name": "Log System Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "info"]
+            },
+            "description": "Get detailed information about the log streaming system"
+          }
+        },
+        {
+          "name": "Get Active Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "sessions"]
+            },
+            "description": "View all active log streaming sessions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Log Streaming Tests",
+      "item": [
+        {
+          "name": "Request Logs from Device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Log request successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.sessionId).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"tags\": [\"TAG_VIDEO\", \"TAG_NETWORK\", \"TAG_SYSTEM\"],\n  \"sessionId\": \"{{sessionId}}\",\n  \"includeHistorical\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "request"]
+            },
+            "description": "Send log request to device via Socket.IO"
+          }
+        },
+        {
+          "name": "Simulate Device Logs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Log simulation successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "    pm.expect(response.data.logCount).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"sessionId\": \"{{sessionId}}\",\n  \"count\": 8,\n  \"type\": \"realtime\",\n  \"format\": \"device\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/simulate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "simulate"]
+            },
+            "description": "Simulate device sending logs to test the streaming"
+          }
+        },
+        {
+          "name": "Stop Log Streaming",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Stop logs successful', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"sessionId\": \"{{sessionId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "stop"]
+            },
+            "description": "Send stop logs request to device via Socket.IO"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Complete Test Flow",
+      "item": [
+        {
+          "name": "1. Check Sessions (Before)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "2. Request Logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"tags\": [\"TAG_VIDEO\", \"TAG_NETWORK\"],\n  \"sessionId\": \"flow-test-{{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "request"]
+            }
+          }
+        },
+        {
+          "name": "3. Check Sessions (After Request)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "sessions"]
+            }
+          }
+        },
+        {
+          "name": "4. Simulate Logs (Multiple Times)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"sessionId\": \"flow-test-{{$timestamp}}\",\n  \"count\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/simulate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "simulate"]
+            }
+          }
+        },
+        {
+          "name": "5. Stop Logs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\",\n  \"sessionId\": \"flow-test-{{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/test/stop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "test", "stop"]
+            }
+          }
+        },
+        {
+          "name": "6. Check Sessions (Final)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs", "sessions"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

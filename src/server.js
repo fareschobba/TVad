@@ -65,6 +65,10 @@ const authRoutes = require('./routes/authRoutes');
 const fileRoutes = require('./routes/fileRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cloudinaryAdvertisementRoutes = require('./routes/cloudinaryAdvertisementRoutes');
+const logRoutes = require('./routes/logRoutes');
+
+// Import authentication middleware
+const { protect } = require('./middleware/authMiddleware');
 
 // Use routes
 app.use('/api/devices', deviceRoutes);
@@ -74,15 +78,92 @@ app.use('/api/auth', authRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cloudinary-advertisements', cloudinaryAdvertisementRoutes);
+app.use('/api/logs', logRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Login route (public)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'login.html'));
+});
+
 // Change password route
 app.get('/change-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'change-password.html'));
+});
+
+// Middleware to check authentication for dashboard routes
+const checkAuthForDashboard = async (req, res, next) => {
+  try {
+    // Check for token in various places
+    const authHeader = req.headers.authorization;
+    const tokenFromQuery = req.query.token;
+    const tokenFromCookie = req.cookies?.authToken;
+
+    let token = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (tokenFromQuery) {
+      token = tokenFromQuery;
+    } else if (tokenFromCookie) {
+      token = tokenFromCookie;
+    }
+
+    // If no token found, redirect to login
+    if (!token) {
+      const redirectUrl = encodeURIComponent(req.originalUrl);
+      return res.redirect(`/login?redirect=${redirectUrl}`);
+    }
+
+    // Verify the token
+    const jwt = require('jsonwebtoken');
+    const AdminUser = require('./models/adminUser');
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await AdminUser.findById(decoded.id);
+
+      if (!user || user.isDeleted || !user.isActive) {
+        const redirectUrl = encodeURIComponent(req.originalUrl);
+        return res.redirect(`/login?redirect=${redirectUrl}&error=invalid_token`);
+      }
+
+      // Token is valid, proceed
+      next();
+    } catch (jwtError) {
+      // Invalid token, redirect to login
+      const redirectUrl = encodeURIComponent(req.originalUrl);
+      return res.redirect(`/login?redirect=${redirectUrl}&error=invalid_token`);
+    }
+  } catch (error) {
+    console.error('Dashboard auth check error:', error);
+    const redirectUrl = encodeURIComponent(req.originalUrl);
+    return res.redirect(`/login?redirect=${redirectUrl}&error=server_error`);
+  }
+};
+
+// Device management dashboard route (public - frontend handles auth)
+app.get('/device-management', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'device_management.html'));
+});
+
+// Professional dashboard route (public - frontend handles auth)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'professional_dashboard.html'));
+});
+
+// App restart test route
+app.get('/test/restart-app', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'test_restart_app.html'));
+});
+
+// Dark mode demo route
+app.get('/demo/dark-mode', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'dark_mode_demo.html'));
 });
 
 // Database connection

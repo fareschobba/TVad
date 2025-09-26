@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Streaming Admin Client</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .logs {
+            background: #000;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        .log-level-V { color: #888; }
+        .log-level-D { color: #00ffff; }
+        .log-level-I { color: #00ff00; }
+        .log-level-W { color: #ffff00; }
+        .log-level-E { color: #ff0000; }
+        .session-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Log Streaming Admin Client</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <div id="status" class="status disconnected">
+                Disconnected
+            </div>
+            
+            <div class="session-info" id="sessionInfo" style="display: none;">
+                <strong>Active Session:</strong><br>
+                Session ID: <span id="sessionId">-</span><br>
+                Device ID: <span id="activeDeviceId">-</span><br>
+                Tags: <span id="activeTags">-</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="serverUrl">Server URL:</label>
+                <input type="text" id="serverUrl" value="http://localhost:3001">
+            </div>
+            
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            
+            <hr style="margin: 20px 0;">
+            
+            <div class="form-group">
+                <label for="deviceId">Device ID:</label>
+                <input type="text" id="deviceId" value="TEST_DEVICE_001" placeholder="Enter device ID">
+            </div>
+            
+            <div class="form-group">
+                <label for="tags">Log Tags (comma-separated):</label>
+                <input type="text" id="tags" value="TAG_VIDEO,TAG_NETWORK" placeholder="TAG_VIDEO,TAG_NETWORK">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="includeHistorical">
+                    Include Historical Logs
+                </label>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    Request historical logs from device if available
+                </small>
+            </div>
+            
+            <button id="startLogsBtn" onclick="startLogs()" disabled>Start Log Streaming</button>
+            <button id="stopLogsBtn" onclick="stopLogs()" disabled>Stop Log Streaming</button>
+            
+            <hr style="margin: 20px 0;">
+            
+            <button onclick="clearLogs()">Clear Log Display</button>
+        </div>
+        
+        <div class="logs" id="logsContainer">
+            <div style="color: #888;">Logs will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentSessionId = null;
+        let logCount = 0;
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const startLogsBtn = document.getElementById('startLogsBtn');
+            const stopLogsBtn = document.getElementById('stopLogsBtn');
+            
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                startLogsBtn.disabled = false;
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                startLogsBtn.disabled = true;
+                stopLogsBtn.disabled = true;
+                hideSessionInfo();
+            }
+        }
+
+        function showSessionInfo(sessionId, deviceId, tags) {
+            document.getElementById('sessionId').textContent = sessionId;
+            document.getElementById('activeDeviceId').textContent = deviceId;
+            document.getElementById('activeTags').textContent = tags.join(', ');
+            document.getElementById('sessionInfo').style.display = 'block';
+            document.getElementById('stopLogsBtn').disabled = false;
+        }
+
+        function hideSessionInfo() {
+            document.getElementById('sessionInfo').style.display = 'none';
+            currentSessionId = null;
+        }
+
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            
+            if (!serverUrl) {
+                alert('Please enter server URL');
+                return;
+            }
+
+            socket = io(serverUrl);
+
+            socket.on('connect', () => {
+                addLog('SYSTEM', 'Connected to server', 'I');
+                updateStatus(true);
+            });
+
+            socket.on('disconnect', () => {
+                addLog('SYSTEM', 'Disconnected from server', 'W');
+                updateStatus(false);
+            });
+
+            socket.on('logSessionStarted', (data) => {
+                addLog('SYSTEM', `Log session started: ${data.sessionId}`, 'I');
+                currentSessionId = data.sessionId;
+                showSessionInfo(data.sessionId, data.deviceId, data.tags);
+            });
+
+            socket.on('logSessionStopped', (data) => {
+                addLog('SYSTEM', `Log session stopped: ${data.sessionId}`, 'I');
+                hideSessionInfo();
+            });
+
+            socket.on('logsData', (data) => {
+                const logType = data.isHistorical ? '[HISTORICAL] ' : '[REALTIME] ';
+                addLog('SYSTEM', `${logType}Received ${data.logs.length} log entries`, 'D');
+
+                data.logs.forEach(log => {
+                    addLog(log.tag, log.message, log.level, log.formattedTime);
+                });
+            });
+
+            socket.on('logError', (error) => {
+                addLog('SYSTEM', `Error: ${error.message}`, 'E');
+            });
+
+            socket.on('connect_error', (error) => {
+                addLog('SYSTEM', `Connection error: ${error.message}`, 'E');
+                updateStatus(false);
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function startLogs() {
+            if (!socket) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const deviceId = document.getElementById('deviceId').value;
+            const tagsInput = document.getElementById('tags').value;
+            const includeHistorical = document.getElementById('includeHistorical').checked;
+
+            if (!deviceId) {
+                alert('Please enter device ID');
+                return;
+            }
+
+            const tags = tagsInput ? tagsInput.split(',').map(tag => tag.trim()) : [];
+
+            const requestData = {
+                deviceId: deviceId,
+                tags: tags,
+                includeHistorical: includeHistorical,
+                sessionId: 'admin-session-' + Date.now()
+            };
+
+            addLog('SYSTEM', `Requesting logs from device: ${deviceId} (Historical: ${includeHistorical})`, 'I');
+            socket.emit('requestLogs', requestData);
+        }
+
+        function stopLogs() {
+            if (!socket || !currentSessionId) {
+                return;
+            }
+
+            const deviceId = document.getElementById('deviceId').value;
+
+            socket.emit('stopLogs', {
+                deviceId: deviceId,
+                sessionId: currentSessionId
+            });
+        }
+
+        function addLog(tag, message, level = 'I', timestamp = null) {
+            const logsContainer = document.getElementById('logsContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-level-${level}`;
+            
+            const time = timestamp || new Date().toLocaleTimeString();
+            logEntry.innerHTML = `[${time}] [${level}] [${tag}] ${message}`;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            
+            logCount++;
+            if (logCount > 1000) {
+                // Remove old logs to prevent memory issues
+                const firstChild = logsContainer.firstChild;
+                if (firstChild) {
+                    logsContainer.removeChild(firstChild);
+                }
+                logCount--;
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logsContainer').innerHTML = '<div style="color: #888;">Logs cleared...</div>';
+            logCount = 0;
+        }
+
+        // Initialize
+        updateStatus(false);
+    </script>
+</body>
+</html>

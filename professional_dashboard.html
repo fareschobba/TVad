@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Management Dashboard</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            grid-template-rows: 80px 1fr;
+            grid-template-areas: 
+                "header header"
+                "sidebar main";
+            height: 100vh;
+            gap: 0;
+        }
+
+        .header {
+            grid-area: header;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .header h1 {
+            color: #f1f5f9;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .sidebar {
+            grid-area: sidebar;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .main-content {
+            grid-area: main;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-section {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .control-section h3 {
+            color: #f1f5f9;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.8);
+            color: #e2e8f0;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        button {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        }
+
+        button:disabled {
+            background: rgba(100, 116, 139, 0.5);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            color: rgba(226, 232, 240, 0.5);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            min-height: 40px;
+            padding: 10px;
+            border: 2px dashed rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            gap: 8px;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+        }
+
+
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .chip-remove {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+
+        .chip-remove:hover {
+            background: rgba(239, 68, 68, 0.8);
+            transform: scale(1.1);
+        }
+
+        .logs-container {
+            flex: 1;
+            background: #000000;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        .log-entry {
+            margin-bottom: 2px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            border-left: 2px solid transparent;
+            transition: all 0.2s ease;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.2;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            background: rgba(20, 20, 20, 0.5);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .log-entry:hover {
+            background: rgba(40, 40, 40, 0.8);
+            transform: translateX(2px);
+        }
+
+        .log-timestamp {
+            color: #94a3b8;
+            font-size: 10px;
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+
+        .log-level {
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+            font-size: 10px;
+        }
+
+        .log-tag {
+            color: #38bdf8;
+            font-weight: 500;
+            min-width: 80px;
+            flex-shrink: 0;
+            font-size: 10px;
+        }
+
+        .log-message {
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .log-entry.system {
+            color: #fbbf24;
+            border-left-color: #fbbf24;
+        }
+
+        .log-entry.historical {
+            color: #7dd3fc;
+            border-left-color: #7dd3fc;
+        }
+
+        .log-entry.realtime {
+            color: #86efac;
+            border-left-color: #86efac;
+        }
+
+        .log-level-V { color: #94a3b8; border-left-color: #94a3b8; }
+        .log-level-D { color: #06b6d4; border-left-color: #06b6d4; }
+        .log-level-I { color: #10b981; border-left-color: #10b981; }
+        .log-level-W { color: #f59e0b; border-left-color: #f59e0b; }
+        .log-level-E { color: #ef4444; border-left-color: #ef4444; }
+
+        /* Compact logs container */
+        #logsContainer {
+            font-family: 'Courier New', monospace;
+            line-height: 1.2;
+        }
+
+        /* Alternating row colors for better readability */
+        .log-entry:nth-child(even) {
+            background: rgba(25, 25, 25, 0.6);
+        }
+
+        .log-entry:nth-child(odd) {
+            background: rgba(15, 15, 15, 0.6);
+        }
+
+        /* Level-specific compact styling */
+        .log-level-E .log-message {
+            font-weight: 500;
+        }
+
+        .log-level-W .log-message {
+            font-weight: 400;
+        }
+
+        /* System message styling */
+        .log-entry.system {
+            background: rgba(251, 191, 36, 0.1);
+            border-left-color: #fbbf24;
+        }
+
+        .log-entry.system .log-message {
+            font-style: italic;
+        }
+
+        /* Historical vs realtime indicators */
+        .log-entry.historical {
+            opacity: 0.8;
+        }
+
+        .log-entry.realtime {
+            opacity: 1;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .log-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+        }
+
+        .session-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .session-info h4 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Switch button styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(100, 116, 139, 0.5);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #3b82f6;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #94a3b8;
+            padding: 40px;
+            font-style: italic;
+        }
+
+        /* Health monitoring styles */
+        .health-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .health-item:last-child {
+            border-bottom: none;
+        }
+
+        .health-label {
+            font-weight: 500;
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+
+        .health-value {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .health-value.healthy {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+        }
+
+        .health-value.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        .health-value.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        .health-value.unknown {
+            background: rgba(100, 116, 139, 0.2);
+            color: #94a3b8;
+        }
+
+        /* Cache status styles */
+        #cacheStatus {
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #cbd5e1;
+        }
+
+        #cacheStatus.success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        #cacheStatus.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-areas: 
+                    "header"
+                    "sidebar"
+                    "main";
+                grid-template-rows: 80px auto 1fr;
+            }
+            
+            .sidebar {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🎛️ Log Management Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div id="userInfo" style="font-size: 14px; color: #cbd5e1;"></div>
+                <button onclick="logout()" style="padding: 8px 16px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);">
+                    🚪 Logout
+                </button>
+                <div id="connectionStatus" class="connection-status disconnected">
+                    <div class="status-dot"></div>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="control-section">
+                <h3>🖥️ Device Selection</h3>
+                <div class="form-group">
+                    <label for="deviceSelect">Select Device:</label>
+                    <select id="deviceSelect">
+                        <option value="">Loading devices...</option>
+                    </select>
+                </div>
+                <button onclick="refreshDevices()" id="refreshBtn">🔄 Refresh Devices</button>
+            </div>
+
+            <div class="control-section">
+                <h3>🏷️ Log Filters</h3>
+                <div class="form-group">
+                    <label for="packageFilter">📦 Package Filter:</label>
+                    <input type="text" id="packageFilter" placeholder="e.g., package:com.kamran.tvadapp"
+                           value="package:com.kamran.tvadapp"
+                           style="font-family: monospace; font-size: 12px; width: 100%;">
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 3px;">
+                        Filter logs by specific package (leave empty for all packages)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="tagInput">🏷️ Add Filter Tag:</label>
+                    <input type="text" id="tagInput" placeholder="Enter tag name (e.g., SocketIO)"
+                           onkeypress="handleTagInput(event)"
+                           oninput="showTagSuggestions(this.value)"
+                           list="tagSuggestions">
+                    <datalist id="tagSuggestions"></datalist>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button onclick="addAllTags()" style="font-size: 11px; padding: 4px 8px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">Add All</button>
+                        <button onclick="clearAllTags()" style="font-size: 11px; padding: 4px 8px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);">Clear All</button>
+                    </div>
+                </div>
+                <div class="chips-container" id="tagsContainer">
+                    <div class="empty-state" style="color: #999; font-size: 12px;">No filters selected - all logs will be shown</div>
+                </div>
+                <div class="form-group">
+                    <label>Quick Filters:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 5px; max-height: 200px; overflow-y: auto;">
+                        <button onclick="addTag('SocketIO')" style="font-size: 10px; padding: 4px;">SocketIO</button>
+                        <button onclick="addTag('VideoActivity')" style="font-size: 10px; padding: 4px;">Video</button>
+                        <button onclick="addTag('DownloadProcess')" style="font-size: 10px; padding: 4px;">Download</button>
+                        <button onclick="addTag('StorageManager')" style="font-size: 10px; padding: 4px;">Storage</button>
+                        <button onclick="addTag('NetworkManager')" style="font-size: 10px; padding: 4px;">Network</button>
+                        <button onclick="addTag('SystemMonitor')" style="font-size: 10px; padding: 4px;">System</button>
+                        <button onclick="addTag('MemoryMonitor')" style="font-size: 10px; padding: 4px;">Memory</button>
+                        <button onclick="addTag('USBManager')" style="font-size: 10px; padding: 4px;">USB</button>
+                        <button onclick="addTag('ScheduleManager')" style="font-size: 10px; padding: 4px;">Schedule</button>
+                        <button onclick="addTag('TvAdApp')" style="font-size: 10px; padding: 4px;">TvAdApp</button>
+                        <button onclick="addTag('DeviceManager')" style="font-size: 10px; padding: 4px;">Device</button>
+                        <button onclick="addTag('ApiService')" style="font-size: 10px; padding: 4px;">API</button>
+                        <button onclick="addTag('BootManager')" style="font-size: 10px; padding: 4px;">Boot</button>
+                        <button onclick="addTag('ActivityLifecycle')" style="font-size: 10px; padding: 4px;">Activity</button>
+                        <button onclick="addTag('VideoValidation')" style="font-size: 10px; padding: 4px;">Validation</button>
+                        <button onclick="addTag('MediaPlayback')" style="font-size: 10px; padding: 4px;">Playback</button>
+                        <button onclick="addTag('OrientationManager')" style="font-size: 10px; padding: 4px;">Orientation</button>
+                        <button onclick="addTag('CacheManager')" style="font-size: 10px; padding: 4px;">Cache</button>
+                        <button onclick="addTag('HealthCheck')" style="font-size: 10px; padding: 4px;">Health</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>⚙️ Log Settings</h3>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="includeHistorical">
+                        <label for="includeHistorical">Historical Logs</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="realtimeEnabled" checked>
+                        <label for="realtimeEnabled">Real-time Logs</label>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button onclick="startLogging()" id="startBtn" disabled>▶️ Start</button>
+                    <button onclick="stopLogging()" id="stopBtn" disabled>⏹️ Stop</button>
+                </div>
+                <div class="button-group" style="margin-top: 10px; width: 100%;">
+                    <button onclick="clearLogs()" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">🗑️ Clear Logs</button>
+                    <button onclick="testLog()" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);" title="Add a test log entry">🧪 Test Log</button>
+                    <!-- <button onclick="stopAllSessions()" style="background: #fd7e14;" title="Stop all active sessions for current device">🛑 Stop All</button> -->
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>🧹 Cache Management</h3>
+                <div class="form-group">
+                    <label for="cacheTypeSelect">Cache Type:</label>
+                    <select id="cacheTypeSelect">
+                        <option value="all">All Cache Types</option>
+                        <option value="app">App Cache</option>
+                        <option value="glide">Glide Image Cache</option>
+                        <option value="logs">Log Files</option>
+                        <option value="exoplayer">ExoPlayer Cache</option>
+                        <option value="shared_prefs">Shared Preferences</option>
+                    </select>
+                </div>
+                <button onclick="clearDeviceCache()" id="clearCacheBtn" disabled>🧹 Clear Cache</button>
+                <div id="cacheStatus" style="margin-top: 10px; font-size: 12px; color: #cbd5e1;"></div>
+            </div>
+
+            <div class="control-section">
+                <h3>🏥 Health Monitor</h3>
+                <button onclick="requestHealthCheck()" id="healthCheckBtn" disabled>🔍 Check Health</button>
+                <div class="checkbox-item" style="margin-top: 10px;">
+                    <input type="checkbox" id="autoHealthCheck">
+                    <label for="autoHealthCheck">Auto-check every 5 minutes</label>
+                </div>
+                <div id="healthStatus" style="margin-top: 15px;">
+                    <div class="health-item">
+                        <span class="health-label">Status:</span>
+                        <span id="overallStatus" class="health-value">Unknown</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-label">Memory:</span>
+                        <span id="memoryStatus" class="health-value">-</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-label">Storage:</span>
+                        <span id="storageStatus" class="health-value">-</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-label">Network:</span>
+                        <span id="networkStatus" class="health-value">-</span>
+                    </div>
+                    <div class="health-item">
+                        <span class="health-label">Uptime:</span>
+                        <span id="uptimeStatus" class="health-value">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sessionInfo" class="session-info" style="display: none;">
+                <h4>📡 Active Session</h4>
+                <div>Session ID: <span id="sessionId">-</span></div>
+                <div>Device: <span id="activeDevice">-</span></div>
+                <div>Filters: <span id="activeFilters">-</span></div>
+                <div>Started: <span id="sessionStartTime">-</span></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="log-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; padding: 12px; background: rgba(30, 41, 59, 0.8); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2);">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h3 style="margin: 0; color: #f1f5f9; font-size: 16px;">📋 Live Logs</h3>
+                        <div class="log-stats" style="font-size: 11px; color: #94a3b8; font-family: monospace;">
+                            <span id="totalLogs">0</span> total |
+                            <span id="realtimeLogs">0</span> live |
+                            <span id="historicalLogs">0</span> historical
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="searchInput" placeholder="Search logs..."
+                               style="width: 160px; padding: 6px 8px; border: 2px solid rgba(148, 163, 184, 0.3); border-radius: 4px; font-size: 11px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0;"
+                               oninput="searchLogs(this.value)">
+                        <button onclick="exportLogs()"
+                                style="padding: 6px 10px; font-size: 11px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">
+                            📥 Export
+                        </button>
+                        <div class="switch-container" style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 11px; color: #94a3b8;">Auto-scroll:</span>
+                            <label class="switch">
+                                <input type="checkbox" id="autoScrollSwitch" checked onchange="toggleAutoScroll()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <button onclick="scrollToBottom()"
+                                style="padding: 6px 10px; font-size: 11px; background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 6px rgba(100, 116, 139, 0.3);">
+                            ⬇️ Bottom
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="log-stats" style="margin-bottom: 15px;">
+                <div class="stat-item">
+                    <div class="stat-dot" style="background: #4caf50;"></div>
+                    <span>Total: <span id="totalLogs">0</span></span>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-dot" style="background: #87ceeb;"></div>
+                    <span>Historical: <span id="historicalCount">0</span></span>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-dot" style="background: #98fb98;"></div>
+                    <span>Real-time: <span id="realtimeCount">0</span></span>
+                </div>
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <div class="empty-state">
+                    Select a device and click "Start" to begin log streaming...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let socket = null;
+        let currentSession = null;
+        let selectedTags = [];
+        let devices = [];
+        let logCounts = { total: 0, historical: 0, realtime: 0 };
+
+        // Button timeout tracking for proper cleanup
+        let buttonTimeouts = {
+            clearCache: null,
+            healthCheck: null
+        };
+
+        // Supported log tags
+        const SUPPORTED_TAGS = [
+            'SocketIO',
+            'VideoActivity',
+            'DownloadProcess',
+            'StorageManager',
+            'NetworkManager',
+            'SystemMonitor',
+            'MemoryMonitor',
+            'USBManager',
+            'ScheduleManager',
+            'TvAdApp',
+            'DeviceManager',
+            'ApiService',
+            'BootManager',
+            'ActivityLifecycle',
+            'VideoValidation',
+            'MediaPlayback',
+            'OrientationManager',
+            'CacheManager',
+            'HealthCheck'
+        ];
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication first
+            if (!checkAuthentication()) {
+                return; // Will redirect to login
+            }
+
+            connectToServer();
+            loadDevices();
+            updateUI();
+
+            // Display user info
+            displayUserInfo();
+
+            // Add some default tags for convenience
+            addSystemLog('Dashboard initialized successfully');
+            addSystemLog('Tip: Use quick filter buttons or type custom tags');
+
+            // Auto-connect if we have stored preferences
+            const lastDevice = localStorage.getItem('lastSelectedDevice');
+            if (lastDevice) {
+                setTimeout(() => {
+                    const select = document.getElementById('deviceSelect');
+                    if (select.querySelector(`option[value="${lastDevice}"]`)) {
+                        select.value = lastDevice;
+                        updateUI();
+                        addSystemLog(`Restored last selected device: ${lastDevice}`);
+                    }
+                }, 1000);
+            }
+
+            // Add scroll listener to logs container
+            const logsContainer = document.getElementById('logsContainer');
+            let scrollTimeout;
+
+            logsContainer.addEventListener('scroll', function() {
+                // Clear previous timeout
+                clearTimeout(scrollTimeout);
+
+                // Set timeout to check scroll position after user stops scrolling
+                scrollTimeout = setTimeout(() => {
+                    const isNearBottom = logsContainer.scrollHeight - logsContainer.clientHeight - logsContainer.scrollTop <= 50;
+
+                    // If auto-scroll is enabled but user scrolled up, show a hint
+                    if (autoScroll && !isNearBottom) {
+                        showScrollHint();
+                    }
+                }, 150);
+            });
+        });
+
+        // Show scroll hint when user scrolls up while auto-scroll is enabled
+        function showScrollHint() {
+            const existing = document.getElementById('scrollHint');
+            if (existing) return; // Don't show multiple hints
+
+            const hint = document.createElement('div');
+            hint.id = 'scrollHint';
+            hint.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(255, 193, 7, 0.9);
+                color: #1f2937;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                z-index: 1000;
+                animation: fadeInDown 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            `;
+            hint.innerHTML = '📜 Auto-scroll paused - scroll to bottom to resume';
+
+            document.querySelector('.main-content').appendChild(hint);
+
+            // Remove hint after 3 seconds
+            setTimeout(() => {
+                if (hint.parentNode) {
+                    hint.remove();
+                }
+            }, 3000);
+        }
+
+        // Socket.IO connection
+        function connectToServer() {
+            socket = io();
+
+            socket.on('connect', () => {
+                updateConnectionStatus(true);
+                addSystemLog('Connected to server');
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus(false);
+                addSystemLog('Disconnected from server - all sessions ended');
+
+                // Clean up all local sessions
+                cleanupCurrentSession();
+
+                // Show reconnection message
+                addSystemLog('Attempting to reconnect...', 'info');
+            });
+
+            socket.on('logSessionStarted', (data) => {
+                addSystemLog(`Log session started: ${data.sessionId}`);
+                showSessionInfo(data);
+            });
+
+            socket.on('logsData', (data) => {
+                const logType = data.isHistorical ? 'historical' : 'realtime';
+
+                // Only log significant batches or first historical batch
+                if (data.logs.length > 10 || (data.isHistorical && logCounts.historical === 0)) {
+                    addSystemLog(`📦 ${data.logs.length} ${logType} logs`, 'info');
+                }
+
+                data.logs.forEach(log => {
+                    addLogEntry(log, data.isHistorical);
+                });
+
+                updateLogStats();
+            });
+
+            socket.on('logSessionStopped', (data) => {
+                addSystemLog(`Log session stopped: ${data.sessionId}`);
+                hideSessionInfo();
+            });
+
+            socket.on('logError', (error) => {
+                addSystemLog(`Error: ${error.message}`, 'error');
+            });
+
+            // Cache management events
+            socket.on('cacheCleared', (data) => {
+                // Reset button state immediately
+                const btn = document.getElementById('clearCacheBtn');
+                if (btn) {
+                    btn.innerHTML = '🧹 Clear Cache';
+                    btn.disabled = false;
+
+                    // Clear any pending timeout
+                    if (buttonTimeouts.clearCache) {
+                        clearTimeout(buttonTimeouts.clearCache);
+                        buttonTimeouts.clearCache = null;
+                    }
+                }
+
+                if (data.success) {
+                    updateCacheStatus(`✅ ${data.message}`, 'success');
+                    addSystemLog(`Cache cleared successfully on ${data.deviceId}: ${data.message}`);
+                } else {
+                    updateCacheStatus(`❌ ${data.message}`, 'error');
+                    addSystemLog(`Cache clear failed on ${data.deviceId}: ${data.message}`, 'error');
+                }
+            });
+
+            // Health check events
+            socket.on('healthStatus', (data) => {
+                // Reset button state immediately
+                const btn = document.getElementById('healthCheckBtn');
+                if (btn) {
+                    btn.innerHTML = '🔍 Check Health';
+                    btn.disabled = false;
+
+                    // Clear any pending timeout
+                    if (buttonTimeouts.healthCheck) {
+                        clearTimeout(buttonTimeouts.healthCheck);
+                        buttonTimeouts.healthCheck = null;
+                    }
+                }
+
+                if (data.error) {
+                    addSystemLog(`Health check failed on ${data.deviceId}: ${data.errorMessage}`, 'error');
+                } else {
+                    addSystemLog(`Health check completed for ${data.deviceId}`);
+                    updateHealthStatus(data);
+                }
+            });
+        }
+
+        // Load devices from API
+        async function loadDevices() {
+            const token = getAuthToken();
+
+            // Try to load from the proper device list API first
+            try {
+                let response;
+
+                if (token) {
+                    // Try authenticated request to get device list
+                    response = await fetch('/api/devices/getdevicelist', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        devices = result.data || result.devices || [];
+                        populateDeviceSelect();
+                        addSystemLog(`Loaded ${devices.length} devices from database`);
+                        return;
+                    } else if (response.status === 401) {
+                        addSystemLog('Authentication failed - redirecting to login', 'error');
+                        clearStoredAuth();
+                        redirectToLogin();
+                        return;
+                    }
+                }
+
+                // Fallback to regular devices endpoint
+                const fallbackHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+                response = await fetch('/api/devices', {
+                    headers: fallbackHeaders
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    devices = result.data || result.devices || [];
+                    populateDeviceSelect();
+                    addSystemLog(`Loaded ${devices.length} devices from fallback API`);
+                    return;
+                }
+
+            } catch (error) {
+                addSystemLog(`Error loading devices from API: ${error.message}`, 'error');
+            }
+
+            // Final fallback to demo devices
+            addSystemLog('Using demo devices - API unavailable or authentication required');
+            devices = [
+                { deviceId: 'TEST_DEVICE_001', name: 'Test Device 1', location: 'Demo Location' },
+                { deviceId: 'TEST_DEVICE_002', name: 'Test Device 2', location: 'Demo Location' },
+                { deviceId: '2KEOJ', name: 'Android TV Device', location: 'Real Device' },
+                { deviceId: 'DEMO_DEVICE', name: 'Demo Device', location: 'Demo Location' },
+                { deviceId: 'TV_LOBBY_01', name: 'Lobby TV 1', location: 'Main Lobby' },
+                { deviceId: 'TV_ROOM_205', name: 'Room 205 TV', location: 'Room 205' }
+            ];
+            populateDeviceSelect();
+        }
+
+        // Get auth token with multiple fallback methods
+        function getAuthToken() {
+            // 1. Check URL parameters (for integration with admin dashboard)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlToken = urlParams.get('token') || urlParams.get('authToken');
+            if (urlToken) {
+                // Store URL token for future use
+                localStorage.setItem('authToken', urlToken);
+                // Clean URL to remove token from address bar
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                return urlToken;
+            }
+
+            // 2. Check cookies (for admin dashboard integration)
+            const cookieToken = getCookie('authToken') || getCookie('token') || getCookie('jwt');
+            if (cookieToken) {
+                localStorage.setItem('authToken', cookieToken);
+                return cookieToken;
+            }
+
+            // 3. Check localStorage and sessionStorage
+            return localStorage.getItem('authToken') ||
+                   localStorage.getItem('token') ||
+                   sessionStorage.getItem('authToken') ||
+                   sessionStorage.getItem('token') ||
+                   '';
+        }
+
+        // Helper function to get cookie value
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                return parts.pop().split(';').shift();
+            }
+            return null;
+        }
+
+        // Check if user is authenticated with automatic detection
+        function checkAuthentication() {
+            const token = getAuthToken();
+            if (!token) {
+                // Try to detect if we're embedded in admin dashboard
+                if (isEmbeddedInAdminDashboard()) {
+                    addSystemLog('Detected admin dashboard integration - attempting automatic auth');
+                    tryAdminDashboardAuth();
+                    return false; // Will retry after auth attempt
+                } else {
+                    // Redirect to login page instead of showing prompt
+                    redirectToLogin();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Redirect to login page
+        function redirectToLogin() {
+            const currentUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?redirect=${currentUrl}`;
+        }
+
+        // Clear stored authentication data
+        function clearStoredAuth() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            sessionStorage.removeItem('authToken');
+            sessionStorage.removeItem('userData');
+        }
+
+        // Display user information
+        function displayUserInfo() {
+            try {
+                const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    const userInfoDiv = document.getElementById('userInfo');
+                    if (userInfoDiv) {
+                        userInfoDiv.innerHTML = `👤 ${user.username} (${user.role})`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error displaying user info:', error);
+            }
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Clear all stored authentication data
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('userData');
+                sessionStorage.removeItem('authToken');
+                sessionStorage.removeItem('userData');
+
+                // Disconnect socket if connected
+                if (socket && socket.connected) {
+                    socket.disconnect();
+                }
+
+                // Redirect to login page
+                window.location.href = '/login';
+            }
+        }
+
+        // Detect if dashboard is embedded in admin dashboard
+        function isEmbeddedInAdminDashboard() {
+            try {
+                // Check if we're in an iframe
+                if (window.self !== window.top) {
+                    return true;
+                }
+
+                // Check for admin dashboard specific elements or URLs
+                const hostname = window.location.hostname;
+                const pathname = window.location.pathname;
+
+                // Add your admin dashboard detection logic here
+                if (pathname.includes('/admin/') || hostname.includes('admin.')) {
+                    return true;
+                }
+
+                return false;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Try to get auth from parent admin dashboard
+        function tryAdminDashboardAuth() {
+            try {
+                // Try to communicate with parent window if in iframe
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'REQUEST_AUTH_TOKEN',
+                        source: 'log_dashboard'
+                    }, '*');
+
+                    // Listen for response
+                    window.addEventListener('message', function(event) {
+                        if (event.data.type === 'AUTH_TOKEN_RESPONSE' && event.data.token) {
+                            localStorage.setItem('authToken', event.data.token);
+                            addSystemLog('Received auth token from admin dashboard');
+                            loadDevices(); // Retry loading devices
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error trying admin dashboard auth:', error);
+                showAuthPrompt();
+            }
+        }
+
+        // Show authentication prompt
+        function showAuthPrompt() {
+            const authHtml = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%); padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; border: 1px solid rgba(148, 163, 184, 0.3); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
+                        <h3 style="margin-bottom: 20px; color: #f1f5f9;">Authentication Required</h3>
+                        <p style="margin-bottom: 20px; color: #cbd5e1;">Please enter your authentication token to access the dashboard:</p>
+                        <input type="password" id="tokenInput" placeholder="Enter JWT token" style="width: 100%; padding: 12px; border: 2px solid rgba(148, 163, 184, 0.3); border-radius: 8px; margin-bottom: 15px; background: rgba(15, 23, 42, 0.8); color: #e2e8f0;">
+                        <div style="display: flex; gap: 10px;">
+                            <button onclick="setAuthToken()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">Login</button>
+                            <button onclick="closeAuthPrompt()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #64748b 0%, #475569 100%); color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);">Cancel</button>
+                        </div>
+                        <p style="margin-top: 15px; font-size: 12px; color: #94a3b8;">
+                            Tip: You can get your token by logging in through the API or admin panel.
+                        </p>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', authHtml);
+        }
+
+        // Set auth token
+        function setAuthToken() {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (token) {
+                localStorage.setItem('authToken', token);
+                closeAuthPrompt();
+                loadDevices();
+            } else {
+                alert('Please enter a valid token');
+            }
+        }
+
+        // Close auth prompt
+        function closeAuthPrompt() {
+            const authDiv = document.querySelector('[style*="position: fixed"]');
+            if (authDiv) {
+                authDiv.remove();
+            }
+        }
+
+        // Populate device dropdown
+        function populateDeviceSelect() {
+            const select = document.getElementById('deviceSelect');
+            select.innerHTML = '<option value="">Select a device...</option>';
+
+            devices.forEach(device => {
+                const option = document.createElement('option');
+
+                // Handle different device data formats
+                const deviceId = device.deviceId || device.id || device._id;
+                const deviceName = device.name || device.deviceName || `Device ${deviceId}`;
+                const location = device.location || device.address || '';
+
+                option.value = deviceId;
+
+                // Create descriptive text
+                if (location) {
+                    option.textContent = `${deviceName} (${deviceId}) - ${location}`;
+                } else {
+                    option.textContent = `${deviceName} (${deviceId})`;
+                }
+
+                select.appendChild(option);
+            });
+
+            addSystemLog(`Device dropdown populated with ${devices.length} devices`);
+            updateUI();
+        }
+
+        // Refresh devices
+        function refreshDevices() {
+            const btn = document.getElementById('refreshBtn');
+            btn.innerHTML = '<div class="loading"></div> Loading...';
+            btn.disabled = true;
+            
+            loadDevices().finally(() => {
+                btn.innerHTML = '🔄 Refresh Devices';
+                btn.disabled = false;
+            });
+        }
+
+        // Handle tag input
+        function handleTagInput(event) {
+            if (event.key === 'Enter') {
+                const input = event.target;
+                const tag = input.value.trim();
+                if (tag) {
+                    addTag(tag);
+                    input.value = '';
+                }
+            } else if (event.key === 'Tab') {
+                // Auto-complete with first matching supported tag
+                const input = event.target;
+                const partial = input.value.trim().toLowerCase();
+                if (partial) {
+                    const match = SUPPORTED_TAGS.find(tag =>
+                        tag.toLowerCase().startsWith(partial)
+                    );
+                    if (match) {
+                        event.preventDefault();
+                        input.value = match;
+                    }
+                }
+            }
+        }
+
+        // Show tag suggestions
+        function showTagSuggestions(input) {
+            const datalist = document.getElementById('tagSuggestions');
+            datalist.innerHTML = '';
+
+            if (input.length > 0) {
+                const matches = SUPPORTED_TAGS.filter(tag =>
+                    tag.toLowerCase().includes(input.toLowerCase()) &&
+                    !selectedTags.includes(tag)
+                );
+
+                matches.forEach(tag => {
+                    const option = document.createElement('option');
+                    option.value = tag;
+                    datalist.appendChild(option);
+                });
+            }
+        }
+
+        // Add tag chip
+        function addTag(tag) {
+            if (!selectedTags.includes(tag)) {
+                selectedTags.push(tag);
+                updateTagsDisplay();
+                addSystemLog(`Added filter: ${tag}`);
+            }
+        }
+
+        // Add all supported tags
+        function addAllTags() {
+            SUPPORTED_TAGS.forEach(tag => {
+                if (!selectedTags.includes(tag)) {
+                    selectedTags.push(tag);
+                }
+            });
+            updateTagsDisplay();
+            addSystemLog(`Added all ${SUPPORTED_TAGS.length} supported tags`);
+        }
+
+        // Clear all tags
+        function clearAllTags() {
+            selectedTags = [];
+            updateTagsDisplay();
+            addSystemLog('Cleared all filter tags');
+        }
+
+        // Remove tag chip
+        function removeTag(tag) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            updateTagsDisplay();
+            addSystemLog(`Removed filter: ${tag}`);
+        }
+
+        // Update tags display
+        function updateTagsDisplay() {
+            const container = document.getElementById('tagsContainer');
+
+            if (selectedTags.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="color: #999; font-size: 12px;">No filters selected - all logs will be shown</div>';
+            } else {
+                container.innerHTML = selectedTags.map(tag => {
+                    return `
+                        <div class="chip">
+                            ${tag}
+                            <button class="chip-remove" onclick="removeTag('${tag}')">×</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Start logging
+        function startLogging() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const includeHistorical = document.getElementById('includeHistorical').checked;
+            const packageFilter = document.getElementById('packageFilter').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const sessionId = `dashboard-${Date.now()}`;
+            currentSession = {
+                sessionId,
+                deviceId,
+                tags: selectedTags,
+                packageFilter,
+                includeHistorical,
+                startTime: new Date()
+            };
+
+            // Prepare request data
+            const requestData = {
+                deviceId,
+                tags: selectedTags,
+                includeHistorical,
+                sessionId
+            };
+
+            // Add package filter if specified
+            if (packageFilter) {
+                requestData.packageFilter = packageFilter;
+            }
+
+            socket.emit('requestLogs', requestData);
+
+            // Build filter info for logging
+            const filterInfo = [];
+            if (selectedTags.length > 0) filterInfo.push(`tags: [${selectedTags.join(', ')}]`);
+            if (packageFilter) filterInfo.push(`package: ${packageFilter}`);
+            if (includeHistorical) filterInfo.push('including historical');
+
+            const filterText = filterInfo.length > 0 ? ` with ${filterInfo.join(', ')}` : '';
+            addSystemLog(`Requesting logs from device: ${deviceId}${filterText}`);
+            updateUI();
+        }
+
+        // Stop logging with comprehensive cleanup
+        function stopLogging() {
+            if (!currentSession) return;
+
+            const deviceId = currentSession.deviceId;
+            const sessionId = currentSession.sessionId;
+
+            // Emit stop request to server
+            socket.emit('stopLogs', {
+                deviceId: deviceId,
+                sessionId: sessionId
+            });
+
+            addSystemLog(`Stopping logs for device: ${deviceId}, session: ${sessionId}`);
+
+            // Clean up local session
+            cleanupCurrentSession();
+            updateUI();
+        }
+
+        // Clean up current session and UI state
+        function cleanupCurrentSession() {
+            if (currentSession) {
+                addSystemLog(`Cleaning up session: ${currentSession.sessionId}`);
+                currentSession = null;
+            }
+
+            // Hide session info
+            hideSessionInfo();
+
+            // Update UI state
+            updateUI();
+        }
+
+        // Stop all active sessions (emergency cleanup)
+        function stopAllSessions() {
+            if (!socket || !socket.connected) {
+                addSystemLog('Cannot stop sessions - not connected to server', 'error');
+                return;
+            }
+
+            // Get current device if available
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (deviceId) {
+                // Stop all sessions for current device
+                socket.emit('stopLogs', {
+                    deviceId: deviceId
+                    // No sessionId = stop all sessions for this device
+                });
+
+                addSystemLog(`Stopping all sessions for device: ${deviceId}`);
+            }
+
+            // Clean up local state
+            cleanupCurrentSession();
+        }
+
+        // Get color for log level
+        function getLevelColor(level) {
+            switch (level) {
+                case 'VERBOSE':
+                case 'V': return '#888';
+                case 'DEBUG':
+                case 'D': return '#00bcd4';
+                case 'INFO':
+                case 'I': return '#4caf50';
+                case 'WARN':
+                case 'W': return '#ff9800';
+                case 'ERROR':
+                case 'E': return '#f44336';
+                case 'FATAL':
+                case 'F': return '#f44336';
+                default: return '#4caf50';
+            }
+        }
+
+        // Update log statistics display
+        function updateLogStats() {
+            document.getElementById('totalLogs').textContent = logCounts.total;
+            document.getElementById('realtimeLogs').textContent = logCounts.realtime;
+            document.getElementById('historicalLogs').textContent = logCounts.historical;
+        }
+
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logsContainer').innerHTML = '<div class="empty-state">Logs cleared...</div>';
+            logCounts = { total: 0, historical: 0, realtime: 0 };
+            updateLogStats();
+            addSystemLog('📋 Logs cleared', 'info');
+        }
+
+        // Test log function to verify log display is working
+        function testLog() {
+            const testLogEntry = {
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                tag: 'TEST',
+                message: 'This is a test log entry to verify the display is working'
+            };
+
+            addLogEntry(testLogEntry, false);
+            addSystemLog('🧪 Test log added', 'info');
+        }
+
+        // Add system log with noise filtering
+        function addSystemLog(message, type = 'info') {
+            // Filter out noisy system messages
+            const noisyPatterns = [
+                /Received \d+ realtime log entries/,
+                /Received \d+ historical log entries/,
+                /Processing \d+ log entries/,
+                /Log entry processed/
+            ];
+
+            // Skip noisy messages unless they're important
+            if (noisyPatterns.some(pattern => pattern.test(message)) && type !== 'error') {
+                return;
+            }
+
+            const container = document.getElementById('logsContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry system`;
+
+            // Compact timestamp (HH:MM:SS)
+            const time = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            logEntry.innerHTML = `
+                <span class="log-timestamp">${time}</span>
+                <span class="log-level" style="color: #ffd700">S</span>
+                <span class="log-tag">SYSTEM</span>
+                <span class="log-message">${message}</span>
+            `;
+
+            container.appendChild(logEntry);
+
+            // Only auto-scroll if enabled and user is near bottom
+            performAutoScroll();
+
+            // Keep only last 500 entries
+            while (container.children.length > 500) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // Add log entry with compact format
+        function addLogEntry(log, isHistorical = false) {
+            // Debug: log the structure to see what we're receiving
+            console.log('Log object received:', log);
+
+            // Safety check
+            if (!log) {
+                console.error('Received null/undefined log object');
+                return;
+            }
+
+            const container = document.getElementById('logsContainer');
+            if (!container) {
+                console.error('Logs container not found');
+                return;
+            }
+
+            const logEntry = document.createElement('div');
+            const logType = isHistorical ? 'historical' : 'realtime';
+            const logLevel = log.level || 'INFO';
+            logEntry.className = `log-entry ${logType} log-level-${logLevel.charAt(0)}`;
+
+            // Create compact timestamp (HH:MM:SS) - handle different timestamp formats
+            let timestamp = '';
+            if (log.formattedTime) {
+                // If formattedTime exists, extract time part
+                const parts = log.formattedTime.split(' ');
+                timestamp = parts.length > 1 ? parts[1] : log.formattedTime;
+            } else if (log.timestamp) {
+                // If raw timestamp, format it
+                const date = new Date(log.timestamp);
+                timestamp = date.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            } else {
+                // Fallback to current time
+                timestamp = new Date().toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+
+            const level = (log.level || 'I').charAt(0); // Single letter
+            const tag = (log.tag || '').substring(0, 12); // Limit tag length
+            const message = log.message || '';
+
+            logEntry.innerHTML = `
+                <span class="log-timestamp">${timestamp}</span>
+                <span class="log-level" style="color: ${getLevelColor(log.level || 'INFO')}">${level}</span>
+                <span class="log-tag">${tag}</span>
+                <span class="log-message">${message}</span>
+            `;
+
+            container.appendChild(logEntry);
+
+            // Only auto-scroll if enabled and user is near bottom
+            performAutoScroll();
+
+            // Update counts
+            logCounts.total++;
+            if (isHistorical) {
+                logCounts.historical++;
+            } else {
+                logCounts.realtime++;
+            }
+
+            // Update statistics display
+            updateLogStats();
+
+            // Keep only last 500 entries
+            while (container.children.length > 500) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.className = 'connection-status connected';
+                status.innerHTML = '<div class="status-dot"></div><span>Connected</span>';
+            } else {
+                status.className = 'connection-status disconnected';
+                status.innerHTML = '<div class="status-dot"></div><span>Disconnected</span>';
+            }
+        }
+
+        // Show session info
+        function showSessionInfo(sessionData) {
+            document.getElementById('sessionInfo').style.display = 'block';
+            document.getElementById('sessionId').textContent = sessionData.sessionId;
+            document.getElementById('activeDevice').textContent = sessionData.deviceId;
+            document.getElementById('activeFilters').textContent = sessionData.tags.join(', ') || 'None';
+            document.getElementById('sessionStartTime').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Hide session info
+        function hideSessionInfo() {
+            document.getElementById('sessionInfo').style.display = 'none';
+        }
+
+        // Update log statistics
+        function updateLogStats() {
+            document.getElementById('totalLogs').textContent = logCounts.total;
+            document.getElementById('historicalCount').textContent = logCounts.historical;
+            document.getElementById('realtimeCount').textContent = logCounts.realtime;
+        }
+
+        // Update UI state
+        function updateUI() {
+            const deviceSelected = document.getElementById('deviceSelect').value !== '';
+            const connected = socket && socket.connected;
+            const hasSession = currentSession !== null;
+
+            document.getElementById('startBtn').disabled = !deviceSelected || !connected || hasSession;
+            document.getElementById('stopBtn').disabled = !hasSession;
+
+            // Update cache and health check buttons
+            document.getElementById('clearCacheBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('healthCheckBtn').disabled = !deviceSelected || !connected;
+        }
+
+        // Handle device selection change
+        document.getElementById('deviceSelect').addEventListener('change', function() {
+            const selectedDevice = this.value;
+            if (selectedDevice) {
+                localStorage.setItem('lastSelectedDevice', selectedDevice);
+                addSystemLog(`Selected device: ${selectedDevice}`);
+            }
+            updateUI();
+        });
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            // Ctrl/Cmd + Enter to start logging
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                if (!currentSession) {
+                    startLogging();
+                } else {
+                    stopLogging();
+                }
+            }
+
+            // Ctrl/Cmd + L to clear logs
+            if ((event.ctrlKey || event.metaKey) && event.key === 'l') {
+                event.preventDefault();
+                clearLogs();
+            }
+
+            // Escape to stop logging
+            if (event.key === 'Escape' && currentSession) {
+                stopLogging();
+            }
+        });
+
+        // Add export functionality
+        function exportLogs() {
+            const container = document.getElementById('logsContainer');
+            const logs = Array.from(container.children)
+                .filter(el => el.classList.contains('log-entry'))
+                .map(el => el.textContent)
+                .join('\n');
+
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            addSystemLog('Logs exported successfully');
+        }
+
+        // Add search functionality
+        function searchLogs(query) {
+            const container = document.getElementById('logsContainer');
+            const entries = container.querySelectorAll('.log-entry');
+
+            entries.forEach(entry => {
+                if (query && !entry.textContent.toLowerCase().includes(query.toLowerCase())) {
+                    entry.style.display = 'none';
+                } else {
+                    entry.style.display = 'block';
+                }
+            });
+        }
+
+        // Auto-scroll functionality
+        let autoScroll = true;
+
+        function toggleAutoScroll() {
+            const switchElement = document.getElementById('autoScrollSwitch');
+            autoScroll = switchElement.checked;
+            addSystemLog(`Auto-scroll ${autoScroll ? 'enabled' : 'disabled'}`);
+        }
+
+        function shouldAutoScroll() {
+            if (!autoScroll) return false;
+
+            const container = document.getElementById('logsContainer');
+            // Check if user is scrolled to bottom (within 50px tolerance)
+            const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop <= 50;
+            return isNearBottom;
+        }
+
+        function performAutoScroll() {
+            if (shouldAutoScroll()) {
+                const container = document.getElementById('logsContainer');
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('logsContainer');
+            container.scrollTop = container.scrollHeight;
+
+            // Remove any scroll hints
+            const hint = document.getElementById('scrollHint');
+            if (hint) {
+                hint.remove();
+            }
+
+            addSystemLog('Scrolled to bottom');
+        }
+
+        // ===== CACHE MANAGEMENT FUNCTIONS =====
+
+        // Clear device cache
+        function clearDeviceCache() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const cacheType = document.getElementById('cacheTypeSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `cache_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('clearCacheBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="loading"></div> Clearing...';
+            btn.disabled = true;
+
+            updateCacheStatus('Requesting cache clear...', 'info');
+
+            // Send cache clear request
+            socket.emit('clearCache', {
+                deviceId,
+                cacheType,
+                requestId
+            });
+
+            addSystemLog(`Requesting ${cacheType} cache clear for device: ${deviceId}`);
+
+            // Reset button after timeout (fallback in case no response is received)
+            buttonTimeouts.clearCache = setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                buttonTimeouts.clearCache = null;
+            }, 10000);
+        }
+
+        // Update cache status display
+        function updateCacheStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('cacheStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
+        }
+
+        // ===== HEALTH CHECK FUNCTIONS =====
+
+        let healthCheckInterval = null;
+
+        // Request health check
+        function requestHealthCheck() {
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `health_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('healthCheckBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="loading"></div> Checking...';
+            btn.disabled = true;
+
+            // Send health check request
+            socket.emit('healthCheck', {
+                deviceId,
+                requestId
+            });
+
+            addSystemLog(`Requesting health check for device: ${deviceId}`);
+
+            // Reset button after timeout (fallback in case no response is received)
+            buttonTimeouts.healthCheck = setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                buttonTimeouts.healthCheck = null;
+            }, 10000);
+        }
+
+        // Update health status display
+        function updateHealthStatus(healthData) {
+            if (healthData.error) {
+                document.getElementById('overallStatus').textContent = 'Error';
+                document.getElementById('overallStatus').className = 'health-value error';
+                document.getElementById('memoryStatus').textContent = 'N/A';
+                document.getElementById('storageStatus').textContent = 'N/A';
+                document.getElementById('networkStatus').textContent = 'N/A';
+                document.getElementById('uptimeStatus').textContent = 'N/A';
+                return;
+            }
+
+            // Overall status
+            const overallStatus = document.getElementById('overallStatus');
+            overallStatus.textContent = 'Healthy';
+            overallStatus.className = 'health-value healthy';
+
+            // Memory status
+            const memoryStatus = document.getElementById('memoryStatus');
+            if (healthData.memory) {
+                memoryStatus.textContent = `${healthData.memory.usedMemoryMB}MB / ${healthData.memory.maxMemoryMB}MB (${healthData.memory.memoryUsagePercent}%)`;
+                memoryStatus.className = `health-value ${healthData.memory.status}`;
+            }
+
+            // Storage status
+            const storageStatus = document.getElementById('storageStatus');
+            if (healthData.storage && healthData.storage.internal) {
+                storageStatus.textContent = `${healthData.storage.internal.usagePercent}% used`;
+                storageStatus.className = `health-value ${healthData.storage.internal.status}`;
+            }
+
+            // Network status
+            const networkStatus = document.getElementById('networkStatus');
+            if (healthData.network) {
+                networkStatus.textContent = healthData.network.status;
+                networkStatus.className = `health-value ${healthData.network.isConnected ? 'healthy' : 'error'}`;
+            }
+
+            // Uptime status
+            const uptimeStatus = document.getElementById('uptimeStatus');
+            if (healthData.uptime) {
+                uptimeStatus.textContent = healthData.uptime.formattedUptime;
+                uptimeStatus.className = 'health-value healthy';
+            }
+        }
+
+        // Toggle auto health check
+        function toggleAutoHealthCheck() {
+            const checkbox = document.getElementById('autoHealthCheck');
+
+            if (checkbox.checked) {
+                // Start auto health check every 5 minutes
+                healthCheckInterval = setInterval(() => {
+                    if (document.getElementById('deviceSelect').value) {
+                        requestHealthCheck();
+                    }
+                }, 5 * 60 * 1000); // 5 minutes
+
+                addSystemLog('Auto health check enabled (every 5 minutes)');
+            } else {
+                // Stop auto health check
+                if (healthCheckInterval) {
+                    clearInterval(healthCheckInterval);
+                    healthCheckInterval = null;
+                }
+
+                addSystemLog('Auto health check disabled');
+            }
+        }
+
+        // Add event listener for auto health check
+        document.getElementById('autoHealthCheck').addEventListener('change', toggleAutoHealthCheck);
+    </script>
+</body>
+</html>

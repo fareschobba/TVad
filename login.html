@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - TV Ad Management System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            max-width: 400px;
+            animation: slideIn 0.6s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+        }
+
+        .login-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e1e8ed;
+        }
+
+        .login-footer p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .dashboard-links {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .dashboard-links a {
+            display: inline-block;
+            margin: 5px 10px;
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: background 0.3s ease;
+        }
+
+        .dashboard-links a:hover {
+            background: #218838;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .remember-me label {
+            margin-bottom: 0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                margin: 20px;
+                padding: 30px 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🎛️ Admin Login</h1>
+            <p>TV Ad Management System</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+
+            <div class="remember-me">
+                <input type="checkbox" id="rememberMe" name="rememberMe">
+                <label for="rememberMe">Remember me</label>
+            </div>
+
+            <button type="submit" class="login-button" id="loginButton">
+                Login
+            </button>
+        </form>
+
+        <div class="dashboard-links" id="dashboardLinks">
+            <p style="margin-bottom: 10px; color: #28a745; font-weight: 500;">✅ Login successful! Choose your dashboard:</p>
+            <a href="/dashboard" id="logDashboardLink">📋 Log Management</a>
+            <a href="/device-management" id="deviceDashboardLink">🖥️ Device Management</a>
+        </div>
+
+        <div class="login-footer">
+            <p>© 2024 TV Ad Management System</p>
+            <p>Secure admin access required</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let isLoading = false;
+
+        // Initialize login page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for error messages in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+
+            if (error) {
+                let errorMessage = 'Authentication failed. Please try again.';
+                if (error === 'invalid_token') {
+                    errorMessage = 'Your session has expired. Please log in again.';
+                } else if (error === 'server_error') {
+                    errorMessage = 'Server error occurred. Please try again.';
+                }
+                showError(errorMessage);
+
+                // Clean URL to remove error parameter
+                const cleanUrl = window.location.pathname + (urlParams.get('redirect') ? '?redirect=' + urlParams.get('redirect') : '');
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+
+            // Check if user is already logged in
+            checkExistingAuth();
+
+            // Load remembered username
+            loadRememberedCredentials();
+
+            // Add form submit handler
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+
+            // Add enter key handler for better UX
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !isLoading) {
+                    handleLogin(e);
+                }
+            });
+        });
+
+        // Check if user is already authenticated
+        async function checkExistingAuth() {
+            const token = getStoredToken();
+            if (token) {
+                try {
+                    // Verify token by making a test API call
+                    const response = await fetch('/api/devices/getdevicelist', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        showSuccess('Already logged in!');
+                        showDashboardLinks();
+                        return;
+                    } else {
+                        // Token is invalid, remove it
+                        clearStoredAuth();
+                    }
+                } catch (error) {
+                    console.log('Auth check failed:', error);
+                    clearStoredAuth();
+                }
+            }
+        }
+
+        // Handle login form submission
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            if (isLoading) return;
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            if (!username || !password) {
+                showError('Please enter both username and password');
+                return;
+            }
+
+            setLoading(true);
+            hideMessages();
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store authentication data
+                    storeAuthData(data.token, data.user, rememberMe);
+
+                    // Store username if remember me is checked
+                    if (rememberMe) {
+                        localStorage.setItem('rememberedUsername', username);
+                    } else {
+                        localStorage.removeItem('rememberedUsername');
+                    }
+
+                    showSuccess('Login successful! Welcome back, ' + data.user.username);
+                    showDashboardLinks();
+
+                    // Auto-redirect after 0.5 seconds if there's a redirect parameter
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const redirectTo = urlParams.get('redirect') || '/dashboard';
+
+                    setTimeout(() => {
+                        window.location.href = redirectTo;
+                    }, 500);
+
+                } else {
+                    showError(data.message || 'Login failed. Please check your credentials.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Network error. Please check your connection and try again.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Store authentication data
+        function storeAuthData(token, user, rememberMe) {
+            const storage = rememberMe ? localStorage : sessionStorage;
+
+            storage.setItem('authToken', token);
+            storage.setItem('userData', JSON.stringify(user));
+
+            // Also store in the other storage for compatibility
+            if (rememberMe) {
+                sessionStorage.setItem('authToken', token);
+            }
+        }
+
+        // Get stored token
+        function getStoredToken() {
+            return localStorage.getItem('authToken') ||
+                   sessionStorage.getItem('authToken') ||
+                   '';
+        }
+
+        // Clear stored authentication
+        function clearStoredAuth() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            sessionStorage.removeItem('authToken');
+            sessionStorage.removeItem('userData');
+        }
+
+        // Load remembered credentials
+        function loadRememberedCredentials() {
+            const rememberedUsername = localStorage.getItem('rememberedUsername');
+            if (rememberedUsername) {
+                document.getElementById('username').value = rememberedUsername;
+                document.getElementById('rememberMe').checked = true;
+                document.getElementById('password').focus();
+            } else {
+                document.getElementById('username').focus();
+            }
+        }
+
+        // Set loading state
+        function setLoading(loading) {
+            isLoading = loading;
+            const button = document.getElementById('loginButton');
+            const form = document.getElementById('loginForm');
+
+            if (loading) {
+                button.innerHTML = '<div class="loading"></div>Logging in...';
+                button.disabled = true;
+                form.style.opacity = '0.7';
+            } else {
+                button.innerHTML = 'Login';
+                button.disabled = false;
+                form.style.opacity = '1';
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+
+        // Hide all messages
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // Show dashboard links
+        function showDashboardLinks() {
+            document.getElementById('dashboardLinks').style.display = 'block';
+            document.getElementById('loginForm').style.display = 'none';
+
+            // Add click handlers for immediate navigation
+            const logManagementBtn = document.querySelector('a[href="/dashboard"]');
+            const deviceManagementBtn = document.querySelector('a[href="/device-management"]');
+
+            if (logManagementBtn) {
+                logManagementBtn.onclick = function(e) {
+                    e.preventDefault();
+                    window.location.href = '/dashboard';
+                };
+            }
+
+            if (deviceManagementBtn) {
+                deviceManagementBtn.onclick = function(e) {
+                    e.preventDefault();
+                    window.location.href = '/device-management';
+                };
+            }
+        }
+    </script>
+</body>
+</html>

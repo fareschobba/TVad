@@ -10,7 +10,12 @@ const {
   pairDevice,
   undeleteDevice,
   getDeviceById,
-  unpair
+  unpair,
+  getDeviceList,
+  clearDeviceCache,
+  requestDeviceHealthCheck,
+  cleanUsbStorage,
+  restartApp
 } = require('../controllers/deviceController');
 
 const router = express.Router();
@@ -21,6 +26,7 @@ router.patch('/:id/isPaired', pairDevice);
 router.use(protect);
 
 // Routes accessible by both admin and regular users
+router.get('/getdevicelist', getDeviceList); // Dashboard-specific endpoint
 router.get('/search', getDeviceByNameOrId);
 router.get('/:id', getDeviceById);
 
@@ -33,5 +39,11 @@ router.post('/', createDevice);
 router.put('/:id', updateDevice); // Admin can update any, users their own
 router.delete('/:id', deleteDevice); // Admin can delete any, users their own
 router.patch('/undelete/:id', undeleteDevice); // Admin can undelete any, users their own
+
+// Cache and health management routes
+router.post('/:deviceId/cache/clear', clearDeviceCache); // Clear device cache
+router.post('/:deviceId/health/check', requestDeviceHealthCheck); // Request health check
+router.post('/:deviceId/usb/clean', cleanUsbStorage); // Clean USB storage
+router.post('/:deviceId/app/restart', restartApp); // Restart app
 
 module.exports = router;
