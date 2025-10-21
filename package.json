@@ -33,7 +33,6 @@
     "socket.io": "^4.8.1",
     "streamifier": "^0.1.1",
     "swagger-ui-express": "^4.1.6",
-    "tvad_backend": "file:",
     "uuid": "^11.1.0",
     "ytdl-core": "npm:@distube/ytdl-core@^4.16.8"
   },

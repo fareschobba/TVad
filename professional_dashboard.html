@@ -236,30 +236,32 @@
 
         .logs-container {
             flex: 1;
-            background: #000000;
-            border-radius: 12px;
-            padding: 20px;
+            background: #2b2b2b;
+            border-radius: 8px;
+            padding: 0;
             overflow-y: auto;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 13px;
-            line-height: 1.4;
-            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
-            border: 1px solid rgba(148, 163, 184, 0.3);
+            line-height: 1.5;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(60, 60, 60, 0.8);
         }
 
+        /* Android Studio Logcat Style - Base Entry */
         .log-entry {
-            margin-bottom: 2px;
-            padding: 3px 8px;
-            border-radius: 3px;
-            border-left: 2px solid transparent;
-            transition: all 0.2s ease;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            line-height: 1.2;
+            margin-bottom: 1px;
+            padding: 8px 12px;
+            border-radius: 0;
+            border-left: none;
+            transition: all 0.15s ease;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
             display: flex;
-            align-items: flex-start;
-            gap: 6px;
-            background: rgba(20, 20, 20, 0.5);
+            align-items: center;
+            gap: 10px;
+            background: #2b2b2b;
+            color: #a9b7c6;
         }
 
         @keyframes fadeIn {
@@ -273,91 +275,129 @@
         }
 
         .log-entry:hover {
-            background: rgba(40, 40, 40, 0.8);
-            transform: translateX(2px);
+            background: #323232 !important;
+            transform: none;
         }
 
         .log-timestamp {
-            color: #94a3b8;
-            font-size: 10px;
-            min-width: 60px;
+            color: #808080;
+            font-size: 12px;
+            min-width: 75px;
             flex-shrink: 0;
+            font-weight: 400;
         }
 
         .log-level {
             font-weight: bold;
-            min-width: 20px;
+            min-width: 24px;
+            width: 24px;
+            height: 24px;
             text-align: center;
             flex-shrink: 0;
-            font-size: 10px;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            color: #000 !important;
         }
 
         .log-tag {
-            color: #38bdf8;
+            color: #9876aa;
             font-weight: 500;
-            min-width: 80px;
+            min-width: 120px;
+            max-width: 120px;
             flex-shrink: 0;
-            font-size: 10px;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .log-message {
             flex: 1;
             word-break: break-word;
+            color: #a9b7c6;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
-        .log-entry.system {
-            color: #fbbf24;
-            border-left-color: #fbbf24;
+        /* Android Studio Logcat Level Colors - Full Row Background */
+        .log-level-V {
+            background: #2b2b2b !important;
         }
 
-        .log-entry.historical {
-            color: #7dd3fc;
-            border-left-color: #7dd3fc;
+        .log-level-V .log-level {
+            background: #bbbbbb;
+            color: #000 !important;
         }
 
-        .log-entry.realtime {
-            color: #86efac;
-            border-left-color: #86efac;
+        .log-level-D {
+            background: #1e3a52 !important;
         }
 
-        .log-level-V { color: #94a3b8; border-left-color: #94a3b8; }
-        .log-level-D { color: #06b6d4; border-left-color: #06b6d4; }
-        .log-level-I { color: #10b981; border-left-color: #10b981; }
-        .log-level-W { color: #f59e0b; border-left-color: #f59e0b; }
-        .log-level-E { color: #ef4444; border-left-color: #ef4444; }
-
-        /* Compact logs container */
-        #logsContainer {
-            font-family: 'Courier New', monospace;
-            line-height: 1.2;
+        .log-level-D .log-level {
+            background: #2196f3;
+            color: #fff !important;
         }
 
-        /* Alternating row colors for better readability */
-        .log-entry:nth-child(even) {
-            background: rgba(25, 25, 25, 0.6);
+        .log-level-I {
+            background: #1a3a1a !important;
         }
 
-        .log-entry:nth-child(odd) {
-            background: rgba(15, 15, 15, 0.6);
+        .log-level-I .log-level {
+            background: #4caf50;
+            color: #fff !important;
         }
 
-        /* Level-specific compact styling */
-        .log-level-E .log-message {
-            font-weight: 500;
+        .log-level-W {
+            background: #3d2f00 !important;
+        }
+
+        .log-level-W .log-level {
+            background: #ff9800;
+            color: #000 !important;
         }
 
         .log-level-W .log-message {
-            font-weight: 400;
+            font-weight: 500;
+        }
+
+        .log-level-E {
+            background: #3d1a1a !important;
+        }
+
+        .log-level-E .log-level {
+            background: #f44336;
+            color: #fff !important;
+        }
+
+        .log-level-E .log-message {
+            font-weight: 600;
+            color: #ff6b6b;
+        }
+
+        /* Compact logs container */
+        #logsContainer {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            line-height: 1.5;
+            background: #2b2b2b;
         }
 
         /* System message styling */
         .log-entry.system {
-            background: rgba(251, 191, 36, 0.1);
-            border-left-color: #fbbf24;
+            background: #2d2a1e !important;
+            border-left: 3px solid #fbbf24;
+        }
+
+        .log-entry.system .log-level {
+            background: #fbbf24;
+            color: #000 !important;
         }
 
         .log-entry.system .log-message {
             font-style: italic;
+            color: #fbbf24;
         }
 
         /* Historical vs realtime indicators */
@@ -494,9 +534,11 @@
 
         .empty-state {
             text-align: center;
-            color: #94a3b8;
+            color: #808080;
             padding: 40px;
             font-style: italic;
+            font-size: 14px;
+            background: #2b2b2b;
         }
 
         /* Health monitoring styles */
@@ -1593,7 +1635,7 @@
 
             logEntry.innerHTML = `
                 <span class="log-timestamp">${time}</span>
-                <span class="log-level" style="color: #ffd700">S</span>
+                <span class="log-level">S</span>
                 <span class="log-tag">SYSTEM</span>
                 <span class="log-message">${message}</span>
             `;
@@ -1657,12 +1699,12 @@
             }
 
             const level = (log.level || 'I').charAt(0); // Single letter
-            const tag = (log.tag || '').substring(0, 12); // Limit tag length
+            const tag = (log.tag || '').substring(0, 20); // Increased tag length for better readability
             const message = log.message || '';
 
             logEntry.innerHTML = `
                 <span class="log-timestamp">${timestamp}</span>
-                <span class="log-level" style="color: ${getLevelColor(log.level || 'INFO')}">${level}</span>
+                <span class="log-level">${level}</span>
                 <span class="log-tag">${tag}</span>
                 <span class="log-message">${message}</span>
             `;

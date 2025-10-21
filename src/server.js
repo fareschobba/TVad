@@ -161,6 +161,16 @@ app.get('/test/restart-app', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'test_restart_app.html'));
 });
 
+// Restart debug test route
+app.get('/test/restart-debug', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'test_restart_debug.html'));
+});
+
+// Duplicate prevention test route
+app.get('/test/duplicate-prevention', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'test_duplicate_prevention.html'));
+});
+
 // Dark mode demo route
 app.get('/demo/dark-mode', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'dark_mode_demo.html'));

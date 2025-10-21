@@ -13,6 +13,16 @@ const {
 
 let io;
 
+// Track processed requests to prevent duplicate emissions when multiple clients are connected
+const processedRequests = new Set();
+
+// Clean up processed requests every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const size = processedRequests.size;
+  processedRequests.clear();
+  console.log(`[Socket.IO] Cleared ${size} processed request IDs from memory`);
+}, 5 * 60 * 1000);
+
 module.exports = {
   init: (server) => {
     io = socketIO(server, {
@@ -23,9 +33,17 @@ module.exports = {
     });
 
     io.on('connection', (socket) => {
-      console.log('Client connected:', socket.id);
+      const connectedSockets = io.sockets.sockets.size;
+      console.log(`[Socket.IO] Client connected: ${socket.id} | Total connections: ${connectedSockets}`);
 
-
+      // Device registration - devices should emit this on connect
+      socket.on('registerDevice', (data) => {
+        const { deviceId } = data;
+        if (deviceId) {
+          socket.join(`device_${deviceId}`);
+          console.log(`[Socket.IO] Device ${deviceId} registered with socket ${socket.id}`);
+        }
+      });
 
       socket.on("message", (data) => {
         console.log(data);
@@ -74,15 +92,19 @@ module.exports = {
 
       // Listen for CheckStates event
       socket.on("checkStates", (data) => {
-
         data.devices.forEach((deviceId) => {
-          // Emit a "CheckState/$deviceId" event for each code
+          // Emit to specific device using room
+          const deviceRoom = `device_${deviceId}`;
+          const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
 
-          io.emit(`checkState/${deviceId}`, "checkState");
-
-          console.log(`Emitted event: checkState/${deviceId}`);
+          if (socketsInRoom && socketsInRoom.size > 0) {
+            io.to(deviceRoom).emit(`checkState/${deviceId}`, "checkState");
+            console.log(`Emitted checkState to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+          } else {
+            io.emit(`checkState/${deviceId}`, "checkState");
+            console.log(`Emitted checkState broadcast (device not in room)`);
+          }
         });
-
       });
 
       // Listen for CheckStates event
@@ -99,16 +121,35 @@ module.exports = {
       // Listen for cache clear requests from admin
       socket.on('clearCache', (data) => {
         const { deviceId, cacheType = 'all', requestId } = data;
+
+        // Prevent duplicate processing when multiple admin clients are connected
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate cache clear request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+        processedRequests.add(requestId);
+
         console.log(`Cache clear request for device ${deviceId}, type: ${cacheType}, requestId: ${requestId}`);
 
-        // Forward to specific device
-        io.emit(`clearCache/${deviceId}`, {
-          cacheType,
-          requestId,
-          adminSocketId: socket.id
-        });
+        // Forward to specific device using room
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
 
-        console.log(`Emitted clearCache/${deviceId} event`);
+        if (socketsInRoom && socketsInRoom.size > 0) {
+          io.to(deviceRoom).emit(`clearCache/${deviceId}`, {
+            cacheType,
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted clearCache to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+        } else {
+          io.emit(`clearCache/${deviceId}`, {
+            cacheType,
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted clearCache broadcast (device not in room)`);
+        }
       });
 
       // Listen for cache cleared responses from devices
@@ -124,15 +165,33 @@ module.exports = {
       // Listen for health check requests from admin
       socket.on('healthCheck', (data) => {
         const { deviceId, requestId } = data;
+
+        // Prevent duplicate processing when multiple admin clients are connected
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate health check request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+        processedRequests.add(requestId);
+
         console.log(`Health check request for device ${deviceId}, requestId: ${requestId}`);
 
-        // Forward to specific device
-        io.emit(`healthCheck/${deviceId}`, {
-          requestId,
-          adminSocketId: socket.id
-        });
+        // Forward to specific device using room
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
 
-        console.log(`Emitted healthCheck/${deviceId} event`);
+        if (socketsInRoom && socketsInRoom.size > 0) {
+          io.to(deviceRoom).emit(`healthCheck/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted healthCheck to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+        } else {
+          io.emit(`healthCheck/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted healthCheck broadcast (device not in room)`);
+        }
       });
 
       // Listen for health status responses from devices
@@ -148,16 +207,35 @@ module.exports = {
       // Listen for USB storage clean requests from admin
       socket.on('cleanUsbStorage', (data) => {
         const { deviceId, cleanType = 'all', requestId } = data;
+
+        // Prevent duplicate processing when multiple admin clients are connected
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate USB clean request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+        processedRequests.add(requestId);
+
         console.log(`USB storage clean request for device ${deviceId}, type: ${cleanType}, requestId: ${requestId}`);
 
-        // Forward to specific device
-        io.emit(`cleanUsbStorage/${deviceId}`, {
-          cleanType,
-          requestId,
-          adminSocketId: socket.id
-        });
+        // Forward to specific device using room
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
 
-        console.log(`Emitted cleanUsbStorage/${deviceId} event`);
+        if (socketsInRoom && socketsInRoom.size > 0) {
+          io.to(deviceRoom).emit(`cleanUsbStorage/${deviceId}`, {
+            cleanType,
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted cleanUsbStorage to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+        } else {
+          io.emit(`cleanUsbStorage/${deviceId}`, {
+            cleanType,
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted cleanUsbStorage broadcast (device not in room)`);
+        }
       });
 
       // Listen for USB storage cleaned responses from devices
@@ -173,15 +251,42 @@ module.exports = {
       // Listen for app restart requests from admin
       socket.on('restartApp', (data) => {
         const { deviceId, requestId } = data;
-        console.log(`App restart request for device ${deviceId}, requestId: ${requestId}`);
 
-        // Forward to specific device
-        io.emit(`restartApp/${deviceId}`, {
-          requestId,
-          adminSocketId: socket.id
-        });
+        console.log(`[RestartApp] Received request - deviceId: ${deviceId}, requestId: ${requestId}, socket: ${socket.id}`);
+        console.log(`[RestartApp] Set size before check: ${processedRequests.size}, has requestId: ${processedRequests.has(requestId)}`);
 
-        console.log(`Emitted restartApp/${deviceId} event`);
+        // Prevent duplicate processing
+        if (processedRequests.has(requestId)) {
+          console.log(`[RestartApp] DUPLICATE BLOCKED - requestId: ${requestId}, socket: ${socket.id}`);
+          return;
+        }
+
+        // Add to processed set
+        processedRequests.add(requestId);
+        console.log(`[RestartApp] Added to set - Set size now: ${processedRequests.size}`);
+
+        // Get sockets in device room
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        const socketCount = socketsInRoom ? socketsInRoom.size : 0;
+
+        console.log(`[RestartApp] Device room: ${deviceRoom}, sockets in room: ${socketCount}`);
+
+        // Emit to device room (only registered devices) OR fallback to broadcast
+        if (socketCount > 0) {
+          io.to(deviceRoom).emit(`restartApp/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`[RestartApp] ✅ EMITTED to room ${deviceRoom} (${socketCount} sockets)`);
+        } else {
+          // Fallback: broadcast to all (for devices not using room registration)
+          io.emit(`restartApp/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`[RestartApp] ✅ EMITTED broadcast (device not in room)`);
+        }
       });
 
       // Listen for app restart responses from devices
@@ -190,6 +295,197 @@ module.exports = {
 
         // Broadcast to all admin clients
         io.emit('appRestarted', data);
+      });
+
+      // ===== DEVICE OWNER TEST EVENTS =====
+
+      // Listen for device owner test requests from admin
+      socket.on('testDeviceOwner', (data) => {
+        const { deviceId, requestId } = data;
+
+        // Prevent duplicate processing when multiple admin clients are connected
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate device owner test request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+
+        // Mark request as processed
+        processedRequests.add(requestId);
+        setTimeout(() => processedRequests.delete(requestId), 30000); // Clean up after 30 seconds
+
+        console.log(`[DeviceOwner] Test request for device ${deviceId}, requestId: ${requestId}`);
+
+        // Emit to device room (only registered devices) OR fallback to broadcast
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        const socketCount = socketsInRoom ? socketsInRoom.size : 0;
+
+        if (socketCount > 0) {
+          io.to(deviceRoom).emit(`testDeviceOwner/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            adminSocketId: socket.id
+          });
+          console.log(`[DeviceOwner] ✅ EMITTED to room ${deviceRoom} (${socketCount} sockets)`);
+        } else {
+          // Fallback: broadcast to all (for devices not using room registration)
+          io.emit(`testDeviceOwner/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            adminSocketId: socket.id
+          });
+          console.log(`[DeviceOwner] ✅ EMITTED broadcast (device not in room)`);
+        }
+      });
+
+      // Listen for device owner test responses from devices
+      socket.on('testDeviceOwnerResponse', (data) => {
+        console.log('Device owner test response received:', data);
+
+        // Broadcast to all admin clients
+        io.emit('testDeviceOwnerResponse', data);
+      });
+
+      // ===== DEVICE REBOOT EVENTS =====
+
+      // Listen for device reboot requests from admin
+      socket.on('rebootDevice', (data) => {
+        const { deviceId, requestId } = data;
+
+        // Prevent duplicate processing
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate reboot request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+
+        processedRequests.add(requestId);
+        setTimeout(() => processedRequests.delete(requestId), 30000);
+
+        console.log(`[Reboot] Request for device ${deviceId}, requestId: ${requestId}`);
+
+        // Emit to device room or broadcast
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        const socketCount = socketsInRoom ? socketsInRoom.size : 0;
+
+        if (socketCount > 0) {
+          io.to(deviceRoom).emit(`rebootDevice/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            adminSocketId: socket.id
+          });
+          console.log(`[Reboot] ✅ EMITTED to room ${deviceRoom} (${socketCount} sockets)`);
+        } else {
+          io.emit(`rebootDevice/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            adminSocketId: socket.id
+          });
+          console.log(`[Reboot] ✅ EMITTED broadcast (device not in room)`);
+        }
+      });
+
+      // Listen for reboot responses from devices
+      socket.on('rebootDeviceResponse', (data) => {
+        console.log('Reboot response received:', data);
+        io.emit('rebootDeviceResponse', data);
+      });
+
+      // ===== FACTORY RESET EVENTS =====
+
+      // Listen for factory reset requests from admin
+      socket.on('factoryReset', (data) => {
+        const { deviceId, requestId, confirmationCode } = data;
+
+        // Prevent duplicate processing
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate factory reset request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+
+        processedRequests.add(requestId);
+        setTimeout(() => processedRequests.delete(requestId), 30000);
+
+        console.log(`[FactoryReset] Request for device ${deviceId}, requestId: ${requestId}, confirmation: ${confirmationCode}`);
+
+        // Emit to device room or broadcast
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        const socketCount = socketsInRoom ? socketsInRoom.size : 0;
+
+        if (socketCount > 0) {
+          io.to(deviceRoom).emit(`factoryReset/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            confirmationCode,
+            adminSocketId: socket.id
+          });
+          console.log(`[FactoryReset] ✅ EMITTED to room ${deviceRoom} (${socketCount} sockets)`);
+        } else {
+          io.emit(`factoryReset/${deviceId}`, {
+            requestId,
+            requestingDeviceId: data.requestingDeviceId || 'admin',
+            confirmationCode,
+            adminSocketId: socket.id
+          });
+          console.log(`[FactoryReset] ✅ EMITTED broadcast (device not in room)`);
+        }
+      });
+
+      // Listen for factory reset responses from devices
+      socket.on('factoryResetResponse', (data) => {
+        console.log('Factory reset response received:', data);
+        io.emit('factoryResetResponse', data);
+      });
+
+      // ===== KIOSK CONTROL EVENTS =====
+
+      // Listen for kiosk control requests from admin
+      socket.on('kioskControl', (data) => {
+        const { deviceId, requestId, action, packageName } = data;
+
+        // Prevent duplicate processing
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate kiosk control request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+
+        processedRequests.add(requestId);
+        setTimeout(() => processedRequests.delete(requestId), 30000);
+
+        console.log(`[KioskControl] Request for device ${deviceId}, action: ${action}, requestId: ${requestId}, packageName: ${packageName || 'N/A'}`);
+
+        // Prepare event data
+        const eventData = {
+          requestId,
+          action,
+          requestingDeviceId: data.requestingDeviceId || 'admin',
+          adminSocketId: socket.id
+        };
+
+        // Add packageName if provided (required for hideApp, showApp, blockUninstall, allowUninstall, clearAppData)
+        if (packageName) {
+          eventData.packageName = packageName;
+        }
+
+        // Emit to device room or broadcast
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        const socketCount = socketsInRoom ? socketsInRoom.size : 0;
+
+        if (socketCount > 0) {
+          io.to(deviceRoom).emit(`kioskControl/${deviceId}`, eventData);
+          console.log(`[KioskControl] ✅ EMITTED to room ${deviceRoom} (${socketCount} sockets)`);
+        } else {
+          io.emit(`kioskControl/${deviceId}`, eventData);
+          console.log(`[KioskControl] ✅ EMITTED broadcast (device not in room)`);
+        }
+      });
+
+      // Listen for kiosk control responses from devices
+      socket.on('kioskControlResponse', (data) => {
+        console.log('Kiosk control response received:', data);
+        io.emit('kioskControlResponse', data);
       });
 
       // ===== LOG STREAMING EVENTS =====
@@ -235,8 +531,17 @@ module.exports = {
             deviceRequest.packageFilter = packageFilter;
           }
 
-          // Notify the device to start streaming logs
-          io.emit(`requestLogs/${deviceId}`, deviceRequest);
+          // Notify the device to start streaming logs using room
+          const deviceRoom = `device_${deviceId}`;
+          const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+
+          if (socketsInRoom && socketsInRoom.size > 0) {
+            io.to(deviceRoom).emit(`requestLogs/${deviceId}`, deviceRequest);
+            console.log(`Emitted requestLogs to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+          } else {
+            io.emit(`requestLogs/${deviceId}`, deviceRequest);
+            console.log(`Emitted requestLogs broadcast (device not in room)`);
+          }
 
           // Confirm session started to admin
           socket.emit('logSessionStarted', {
@@ -290,22 +595,46 @@ module.exports = {
             });
           }
 
-          // Notify the device to stop streaming logs
-          io.emit(`stopLogs/${deviceId}`, {
-            sessionId,
-            adminSocketId: socket.id,
-            stoppedSessions: stoppedSessions.map(s => s.sessionId)
-          });
+          // Notify the device to stop streaming logs using room
+          const deviceRoom = `device_${deviceId}`;
+          const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
 
-          // Also broadcast a general stop signal to ensure cleanup
+          if (socketsInRoom && socketsInRoom.size > 0) {
+            io.to(deviceRoom).emit(`stopLogs/${deviceId}`, {
+              sessionId,
+              adminSocketId: socket.id,
+              stoppedSessions: stoppedSessions.map(s => s.sessionId)
+            });
+            console.log(`Emitted stopLogs to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+          } else {
+            io.emit(`stopLogs/${deviceId}`, {
+              sessionId,
+              adminSocketId: socket.id,
+              stoppedSessions: stoppedSessions.map(s => s.sessionId)
+            });
+            console.log(`Emitted stopLogs broadcast (device not in room)`);
+          }
+
+          // Also send stop signal for each stopped session
           if (stoppedSessions.length > 0) {
-            console.log(`Broadcasting stop signal for ${stoppedSessions.length} sessions`);
+            console.log(`Sending stop signal for ${stoppedSessions.length} sessions`);
             stoppedSessions.forEach(session => {
-              io.emit(`stopLogs/${session.deviceId}`, {
-                sessionId: session.sessionId,
-                adminSocketId: socket.id,
-                forceStop: true
-              });
+              const sessionDeviceRoom = `device_${session.deviceId}`;
+              const sessionSockets = io.sockets.adapter.rooms.get(sessionDeviceRoom);
+
+              if (sessionSockets && sessionSockets.size > 0) {
+                io.to(sessionDeviceRoom).emit(`stopLogs/${session.deviceId}`, {
+                  sessionId: session.sessionId,
+                  adminSocketId: socket.id,
+                  forceStop: true
+                });
+              } else {
+                io.emit(`stopLogs/${session.deviceId}`, {
+                  sessionId: session.sessionId,
+                  adminSocketId: socket.id,
+                  forceStop: true
+                });
+              }
             });
           }
 
@@ -406,7 +735,8 @@ module.exports = {
 
       // Handle socket disconnection
       socket.on('disconnect', (reason) => {
-        console.log(`Socket ${socket.id} disconnected: ${reason}`);
+        const remainingSockets = io.sockets.sockets.size - 1;
+        console.log(`[Socket.IO] Socket ${socket.id} disconnected: ${reason} | Remaining connections: ${remainingSockets}`);
 
         try {
           // Get sessions before cleanup for notification

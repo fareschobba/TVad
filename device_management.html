@@ -681,13 +681,194 @@
                         <div id="networkStatus" class="health-value unknown">-</div>
                     </div>
                     <div class="health-item">
-                        <div class="health-label">Uptime</div>
-                        <div id="uptimeStatus" class="health-value unknown">-</div>
+                        <div class="health-label">TV Uptime</div>
+                        <div id="tvUptimeStatus" class="health-value unknown">-</div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-label">App Uptime</div>
+                        <div id="appUptimeStatus" class="health-value unknown">-</div>
                     </div>
                     <div class="health-item">
                         <div class="health-label">Socket Connection</div>
                         <div id="socketStatus" class="health-value unknown">-</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Device Owner Status Card -->
+            <div class="card">
+                <h2>🔐 Device Owner Status</h2>
+
+                <div class="form-group">
+                    <label>Check Device Owner Status:</label>
+                    <p class="help-text">View device owner privileges and lock-task mode status</p>
+                </div>
+
+                <button onclick="checkDeviceOwnerStatus()" id="deviceOwnerStatusBtn" disabled>
+                    📊 Check Status
+                </button>
+
+                <div id="deviceOwnerStatusDisplay" class="status-display">
+                    Select a device to check device owner status
+                </div>
+
+                <!-- Device Owner Test Results -->
+                <div id="deviceOwnerResults" style="display: none; margin-top: 15px;">
+                    <div class="health-grid">
+                        <div class="health-item">
+                            <div class="health-label">Device Owner</div>
+                            <div id="doIsDeviceOwner" class="health-value unknown">-</div>
+                        </div>
+                        <div class="health-item">
+                            <div class="health-label">Admin Active</div>
+                            <div id="doIsAdminActive" class="health-value unknown">-</div>
+                        </div>
+                        <div class="health-item">
+                            <div class="health-label">Lock-Task Mode</div>
+                            <div id="doIsInLockTaskMode" class="health-value unknown">-</div>
+                        </div>
+                        <div class="health-item">
+                            <div class="health-label">Lock-Task State</div>
+                            <div id="doLockTaskModeState" class="health-value unknown">-</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 8px;">Device Owner Info:</div>
+                        <div id="doPackageName" style="font-size: 11px; color: #cbd5e1; margin-bottom: 4px;">Package: -</div>
+                        <div id="doAdminComponent" style="font-size: 11px; color: #cbd5e1; word-break: break-all;">Component: -</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kiosk Mode Control Card -->
+            <div class="card">
+                <h2>🔒 Kiosk Mode Control</h2>
+
+                <div class="form-group">
+                    <label>Lock-Task Mode Control:</label>
+                    <p class="help-text">Start or stop kiosk mode (lock-task mode) on the device</p>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="startKioskMode()" id="startKioskBtn" disabled style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        ▶️ Start Kiosk Mode
+                    </button>
+                    <button onclick="stopKioskMode()" id="stopKioskBtn" disabled style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        ⏹️ Stop Kiosk Mode
+                    </button>
+                </div>
+
+                <div id="kioskControlStatus" class="status-display">
+                    Select a device to control kiosk mode
+                </div>
+            </div>
+
+            <!-- Device Reboot Card -->
+            <div class="card">
+                <h2>🔄 Device Reboot</h2>
+
+                <div class="form-group">
+                    <label>Remote Device Reboot:</label>
+                    <p class="help-text" style="color: #f59e0b;">⚠️ Warning: This will immediately reboot the device</p>
+                </div>
+
+                <button onclick="rebootDevice()" id="rebootDeviceBtn" disabled style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    🔄 Reboot Device
+                </button>
+
+                <div id="rebootStatus" class="status-display">
+                    Select a device to reboot
+                </div>
+            </div>
+
+            <!-- Factory Reset Card -->
+            <div class="card">
+                <h2>⚠️ Factory Reset</h2>
+
+                <div class="form-group">
+                    <label>Factory Reset Device:</label>
+                    <p class="help-text" style="color: #ef4444;">🚨 DANGER: This will erase ALL data on the device!</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmationCodeInput">Confirmation Code:</label>
+                    <input type="text" id="confirmationCodeInput" placeholder="Type: FACTORY_RESET_CONFIRMED" style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px;">
+                </div>
+
+                <button onclick="factoryResetDevice()" id="factoryResetBtn" disabled style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                    ⚠️ Factory Reset Device
+                </button>
+
+                <div id="factoryResetStatus" class="status-display">
+                    Select a device and enter confirmation code
+                </div>
+            </div>
+
+            <!-- App Visibility Control Card -->
+            <div class="card">
+                <h2>👁️ App Visibility Control</h2>
+
+                <div class="form-group">
+                    <label for="appVisibilityPackage">Package Name:</label>
+                    <input type="text" id="appVisibilityPackage" placeholder="e.g., com.android.settings" style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px; margin-bottom: 10px;">
+                    <p class="help-text">Common apps: com.android.settings, com.google.android.tvlauncher</p>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="hideApp()" id="hideAppBtn" disabled style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                        🙈 Hide App
+                    </button>
+                    <button onclick="showApp()" id="showAppBtn" disabled style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        👁️ Show App
+                    </button>
+                </div>
+
+                <div id="appVisibilityStatus" class="status-display">
+                    Select a device and enter package name
+                </div>
+            </div>
+
+            <!-- Uninstall Protection Card -->
+            <div class="card">
+                <h2>🛡️ Uninstall Protection</h2>
+
+                <div class="form-group">
+                    <label for="uninstallProtectionPackage">Package Name:</label>
+                    <input type="text" id="uninstallProtectionPackage" placeholder="e.g., com.kamran.tvadapp" style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px; margin-bottom: 10px;">
+                    <p class="help-text">Protect critical apps from being uninstalled</p>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="blockUninstall()" id="blockUninstallBtn" disabled style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        🔒 Block Uninstall
+                    </button>
+                    <button onclick="allowUninstall()" id="allowUninstallBtn" disabled style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        🔓 Allow Uninstall
+                    </button>
+                </div>
+
+                <div id="uninstallProtectionStatus" class="status-display">
+                    Select a device and enter package name
+                </div>
+            </div>
+
+            <!-- Clear App Data Card -->
+            <div class="card">
+                <h2>🗑️ Clear App Data</h2>
+
+                <div class="form-group">
+                    <label for="clearDataPackage">Package Name:</label>
+                    <input type="text" id="clearDataPackage" placeholder="e.g., com.example.app" style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px; margin-bottom: 10px;">
+                    <p class="help-text" style="color: #f59e0b;">⚠️ Warning: This will clear all app data (requires Android 9+)</p>
+                </div>
+
+                <button onclick="clearAppData()" id="clearAppDataBtn" disabled style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    🗑️ Clear App Data
+                </button>
+
+                <div id="clearAppDataStatus" class="status-display">
+                    Select a device and enter package name
                 </div>
             </div>
         </div>
@@ -712,8 +893,12 @@
                     <div id="appVersion" class="value">-</div>
                 </div>
                 <div class="info-card">
-                    <h4>Device Uptime</h4>
+                    <h4>TV Uptime</h4>
                     <div id="deviceUptime" class="value">-</div>
+                </div>
+                <div class="info-card">
+                    <h4>App Uptime</h4>
+                    <div id="appUptime" class="value">-</div>
                 </div>
             </div>
         </div>
@@ -943,7 +1128,17 @@
             clearCache: null,
             cleanUsb: null,
             restartApp: null,
-            healthCheck: null
+            healthCheck: null,
+            deviceOwnerStatus: null,
+            startKiosk: null,
+            stopKiosk: null,
+            hideApp: null,
+            showApp: null,
+            blockUninstall: null,
+            allowUninstall: null,
+            clearAppData: null,
+            rebootDevice: null,
+            factoryReset: null
         };
 
         // Initialize dashboard
@@ -1065,6 +1260,243 @@
                 } else {
                     updateRestartStatus(`❌ ${data.message}`, 'error');
                     addLog(`App restart failed: ${data.message}`, 'error');
+                }
+            });
+
+            // Device owner status events
+            socket.on('testDeviceOwnerResponse', (data) => {
+                // Reset button state immediately
+                const btn = document.getElementById('deviceOwnerStatusBtn');
+                if (btn) {
+                    btn.innerHTML = '📊 Check Status';
+                    btn.disabled = false;
+
+                    // Clear any pending timeout
+                    if (buttonTimeouts.deviceOwnerStatus) {
+                        clearTimeout(buttonTimeouts.deviceOwnerStatus);
+                        buttonTimeouts.deviceOwnerStatus = null;
+                    }
+                }
+
+                if (data.error) {
+                    updateDeviceOwnerStatusDisplay(`❌ ${data.message || 'Failed to get status'}`, 'error');
+                    addLog(`Device owner status check failed: ${data.message}`, 'error');
+                } else {
+                    updateDeviceOwnerStatusDisplay(`✅ ${data.message || 'Status retrieved successfully'}`, 'success');
+                    addLog(`Device owner status retrieved for ${data.deviceId}`, 'success');
+                    updateDeviceOwnerResults(data);
+                }
+            });
+
+            // Kiosk control events (handles all kiosk actions)
+            socket.on('kioskControlResponse', (data) => {
+                const action = data.action;
+
+                // Handle different actions
+                switch (action) {
+                    case 'startLockTask':
+                        {
+                            const btn = document.getElementById('startKioskBtn');
+                            if (btn) {
+                                btn.innerHTML = '▶️ Start Kiosk Mode';
+                                btn.disabled = false;
+                                if (buttonTimeouts.startKiosk) {
+                                    clearTimeout(buttonTimeouts.startKiosk);
+                                    buttonTimeouts.startKiosk = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateKioskControlStatus(`❌ ${data.message || 'Failed to start kiosk mode'}`, 'error');
+                                addLog(`Start kiosk mode failed: ${data.message}`, 'error');
+                            } else {
+                                updateKioskControlStatus(`✅ ${data.message || 'Kiosk mode started'}`, 'success');
+                                addLog(`Kiosk mode started on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'stopLockTask':
+                        {
+                            const btn = document.getElementById('stopKioskBtn');
+                            if (btn) {
+                                btn.innerHTML = '⏹️ Stop Kiosk Mode';
+                                btn.disabled = false;
+                                if (buttonTimeouts.stopKiosk) {
+                                    clearTimeout(buttonTimeouts.stopKiosk);
+                                    buttonTimeouts.stopKiosk = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateKioskControlStatus(`❌ ${data.message || 'Failed to stop kiosk mode'}`, 'error');
+                                addLog(`Stop kiosk mode failed: ${data.message}`, 'error');
+                            } else {
+                                updateKioskControlStatus(`✅ ${data.message || 'Kiosk mode stopped'}`, 'success');
+                                addLog(`Kiosk mode stopped on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'hideApp':
+                        {
+                            const btn = document.getElementById('hideAppBtn');
+                            if (btn) {
+                                btn.innerHTML = '🙈 Hide App';
+                                btn.disabled = false;
+                                if (buttonTimeouts.hideApp) {
+                                    clearTimeout(buttonTimeouts.hideApp);
+                                    buttonTimeouts.hideApp = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateAppVisibilityStatus(`❌ ${data.message || 'Failed to hide app'}`, 'error');
+                                addLog(`Hide app failed: ${data.message}`, 'error');
+                            } else {
+                                updateAppVisibilityStatus(`✅ ${data.message || 'App hidden successfully'} (${data.packageName})`, 'success');
+                                addLog(`App ${data.packageName} hidden on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'showApp':
+                        {
+                            const btn = document.getElementById('showAppBtn');
+                            if (btn) {
+                                btn.innerHTML = '👁️ Show App';
+                                btn.disabled = false;
+                                if (buttonTimeouts.showApp) {
+                                    clearTimeout(buttonTimeouts.showApp);
+                                    buttonTimeouts.showApp = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateAppVisibilityStatus(`❌ ${data.message || 'Failed to show app'}`, 'error');
+                                addLog(`Show app failed: ${data.message}`, 'error');
+                            } else {
+                                updateAppVisibilityStatus(`✅ ${data.message || 'App shown successfully'} (${data.packageName})`, 'success');
+                                addLog(`App ${data.packageName} shown on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'blockUninstall':
+                        {
+                            const btn = document.getElementById('blockUninstallBtn');
+                            if (btn) {
+                                btn.innerHTML = '🔒 Block Uninstall';
+                                btn.disabled = false;
+                                if (buttonTimeouts.blockUninstall) {
+                                    clearTimeout(buttonTimeouts.blockUninstall);
+                                    buttonTimeouts.blockUninstall = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateUninstallProtectionStatus(`❌ ${data.message || 'Failed to block uninstall'}`, 'error');
+                                addLog(`Block uninstall failed: ${data.message}`, 'error');
+                            } else {
+                                updateUninstallProtectionStatus(`✅ ${data.message || 'Uninstall blocked successfully'} (${data.packageName})`, 'success');
+                                addLog(`Uninstall blocked for ${data.packageName} on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'allowUninstall':
+                        {
+                            const btn = document.getElementById('allowUninstallBtn');
+                            if (btn) {
+                                btn.innerHTML = '🔓 Allow Uninstall';
+                                btn.disabled = false;
+                                if (buttonTimeouts.allowUninstall) {
+                                    clearTimeout(buttonTimeouts.allowUninstall);
+                                    buttonTimeouts.allowUninstall = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateUninstallProtectionStatus(`❌ ${data.message || 'Failed to allow uninstall'}`, 'error');
+                                addLog(`Allow uninstall failed: ${data.message}`, 'error');
+                            } else {
+                                updateUninstallProtectionStatus(`✅ ${data.message || 'Uninstall allowed successfully'} (${data.packageName})`, 'success');
+                                addLog(`Uninstall allowed for ${data.packageName} on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    case 'clearAppData':
+                        {
+                            const btn = document.getElementById('clearAppDataBtn');
+                            if (btn) {
+                                btn.innerHTML = '🗑️ Clear App Data';
+                                btn.disabled = false;
+                                if (buttonTimeouts.clearAppData) {
+                                    clearTimeout(buttonTimeouts.clearAppData);
+                                    buttonTimeouts.clearAppData = null;
+                                }
+                            }
+
+                            if (data.error || !data.success) {
+                                updateClearAppDataStatus(`❌ ${data.message || 'Failed to clear app data'}`, 'error');
+                                addLog(`Clear app data failed: ${data.message}`, 'error');
+                            } else {
+                                updateClearAppDataStatus(`✅ ${data.message || 'App data cleared successfully'} (${data.packageName})`, 'success');
+                                addLog(`App data cleared for ${data.packageName} on ${data.deviceId}`, 'success');
+                            }
+                        }
+                        break;
+
+                    default:
+                        console.log('Unknown kiosk control action:', action, data);
+                        break;
+                }
+            });
+
+            // Reboot device events
+            socket.on('rebootDeviceResponse', (data) => {
+                // Reset button state
+                const btn = document.getElementById('rebootDeviceBtn');
+                if (btn) {
+                    btn.innerHTML = '🔄 Reboot Device';
+                    btn.disabled = false;
+
+                    if (buttonTimeouts.rebootDevice) {
+                        clearTimeout(buttonTimeouts.rebootDevice);
+                        buttonTimeouts.rebootDevice = null;
+                    }
+                }
+
+                if (data.error || !data.success) {
+                    updateRebootStatus(`❌ ${data.message || 'Reboot failed'}`, 'error');
+                    addLog(`Device reboot failed: ${data.message}`, 'error');
+                } else {
+                    updateRebootStatus(`✅ ${data.message || 'Device is rebooting...'}`, 'success');
+                    addLog(`Device ${data.deviceId} is rebooting`, 'success');
+                }
+            });
+
+            // Factory reset events
+            socket.on('factoryResetResponse', (data) => {
+                // Reset button state
+                const btn = document.getElementById('factoryResetBtn');
+                if (btn) {
+                    btn.innerHTML = '⚠️ Factory Reset Device';
+                    btn.disabled = false;
+
+                    if (buttonTimeouts.factoryReset) {
+                        clearTimeout(buttonTimeouts.factoryReset);
+                        buttonTimeouts.factoryReset = null;
+                    }
+                }
+
+                if (data.error || !data.success) {
+                    updateFactoryResetStatus(`❌ ${data.message || 'Factory reset failed'}`, 'error');
+                    addLog(`Factory reset failed: ${data.message}`, 'error');
+                } else {
+                    updateFactoryResetStatus(`✅ ${data.message || 'Device is resetting...'}`, 'success');
+                    addLog(`Device ${data.deviceId} is performing factory reset`, 'success');
                 }
             });
         }
@@ -1356,6 +1788,475 @@
             }, 15000); // Longer timeout for app restart
         }
 
+        // Check device owner status
+        function checkDeviceOwnerStatus() {
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `deviceowner_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('deviceOwnerStatusBtn');
+            btn.innerHTML = '<div class="loading"></div> Checking...';
+            btn.disabled = true;
+
+            updateDeviceOwnerStatusDisplay('Checking device owner status...', 'info');
+
+            // Send device owner test request
+            socket.emit('testDeviceOwner', {
+                deviceId,
+                requestId,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Checking device owner status for device: ${deviceId}`, 'system');
+
+            // Reset button after timeout (fallback in case no response is received)
+            buttonTimeouts.deviceOwnerStatus = setTimeout(() => {
+                btn.innerHTML = '📊 Check Status';
+                btn.disabled = false;
+                buttonTimeouts.deviceOwnerStatus = null;
+            }, 10000);
+        }
+
+        // Start kiosk mode
+        function startKioskMode() {
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `startkiosk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('startKioskBtn');
+            btn.innerHTML = '<div class="loading"></div> Starting...';
+            btn.disabled = true;
+
+            updateKioskControlStatus('Starting kiosk mode...', 'info');
+
+            // Send kiosk control request with startLockTask action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'startLockTask',
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Starting kiosk mode for device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.startKiosk = setTimeout(() => {
+                btn.innerHTML = '▶️ Start Kiosk Mode';
+                btn.disabled = false;
+                buttonTimeouts.startKiosk = null;
+            }, 10000);
+        }
+
+        // Stop kiosk mode
+        function stopKioskMode() {
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            // Confirmation dialog
+            if (!confirm('⚠️ WARNING: Stopping kiosk mode will allow users to exit the app!\n\nAre you sure you want to continue?')) {
+                return;
+            }
+
+            const requestId = `stopkiosk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('stopKioskBtn');
+            btn.innerHTML = '<div class="loading"></div> Stopping...';
+            btn.disabled = true;
+
+            updateKioskControlStatus('Stopping kiosk mode...', 'info');
+
+            // Send kiosk control request with stopLockTask action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'stopLockTask',
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Stopping kiosk mode for device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.stopKiosk = setTimeout(() => {
+                btn.innerHTML = '⏹️ Stop Kiosk Mode';
+                btn.disabled = false;
+                buttonTimeouts.stopKiosk = null;
+            }, 10000);
+        }
+
+        // Hide app
+        function hideApp() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const packageName = document.getElementById('appVisibilityPackage').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!packageName) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `hideapp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('hideAppBtn');
+            btn.innerHTML = '<div class="loading"></div> Hiding...';
+            btn.disabled = true;
+
+            updateAppVisibilityStatus('Hiding app from launcher...', 'info');
+
+            // Send kiosk control request with hideApp action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'hideApp',
+                packageName,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Hiding app ${packageName} on device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.hideApp = setTimeout(() => {
+                btn.innerHTML = '🙈 Hide App';
+                btn.disabled = false;
+                buttonTimeouts.hideApp = null;
+            }, 10000);
+        }
+
+        // Show app
+        function showApp() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const packageName = document.getElementById('appVisibilityPackage').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!packageName) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `showapp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('showAppBtn');
+            btn.innerHTML = '<div class="loading"></div> Showing...';
+            btn.disabled = true;
+
+            updateAppVisibilityStatus('Showing app in launcher...', 'info');
+
+            // Send kiosk control request with showApp action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'showApp',
+                packageName,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Showing app ${packageName} on device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.showApp = setTimeout(() => {
+                btn.innerHTML = '👁️ Show App';
+                btn.disabled = false;
+                buttonTimeouts.showApp = null;
+            }, 10000);
+        }
+
+        // Block uninstall
+        function blockUninstall() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const packageName = document.getElementById('uninstallProtectionPackage').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!packageName) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `blockuninstall_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('blockUninstallBtn');
+            btn.innerHTML = '<div class="loading"></div> Blocking...';
+            btn.disabled = true;
+
+            updateUninstallProtectionStatus('Blocking app uninstall...', 'info');
+
+            // Send kiosk control request with blockUninstall action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'blockUninstall',
+                packageName,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Blocking uninstall for ${packageName} on device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.blockUninstall = setTimeout(() => {
+                btn.innerHTML = '🔒 Block Uninstall';
+                btn.disabled = false;
+                buttonTimeouts.blockUninstall = null;
+            }, 10000);
+        }
+
+        // Allow uninstall
+        function allowUninstall() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const packageName = document.getElementById('uninstallProtectionPackage').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!packageName) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const requestId = `allowuninstall_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('allowUninstallBtn');
+            btn.innerHTML = '<div class="loading"></div> Allowing...';
+            btn.disabled = true;
+
+            updateUninstallProtectionStatus('Allowing app uninstall...', 'info');
+
+            // Send kiosk control request with allowUninstall action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'allowUninstall',
+                packageName,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Allowing uninstall for ${packageName} on device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.allowUninstall = setTimeout(() => {
+                btn.innerHTML = '🔓 Allow Uninstall';
+                btn.disabled = false;
+                buttonTimeouts.allowUninstall = null;
+            }, 10000);
+        }
+
+        // Clear app data
+        function clearAppData() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const packageName = document.getElementById('clearDataPackage').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!packageName) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            // Confirmation dialog
+            if (!confirm(`⚠️ WARNING: This will clear ALL data for ${packageName}!\n\nThis action cannot be undone. Continue?`)) {
+                return;
+            }
+
+            const requestId = `cleardata_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('clearAppDataBtn');
+            btn.innerHTML = '<div class="loading"></div> Clearing...';
+            btn.disabled = true;
+
+            updateClearAppDataStatus('Clearing app data...', 'info');
+
+            // Send kiosk control request with clearAppData action
+            socket.emit('kioskControl', {
+                deviceId,
+                requestId,
+                action: 'clearAppData',
+                packageName,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Clearing data for ${packageName} on device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.clearAppData = setTimeout(() => {
+                btn.innerHTML = '🗑️ Clear App Data';
+                btn.disabled = false;
+                buttonTimeouts.clearAppData = null;
+            }, 15000); // Longer timeout for clear data
+        }
+
+        // Reboot device
+        function rebootDevice() {
+            const deviceId = document.getElementById('deviceSelect').value;
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            // Confirmation dialog
+            if (!confirm('⚠️ WARNING: This will immediately reboot the device!\n\nAre you sure you want to continue?')) {
+                return;
+            }
+
+            const requestId = `reboot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('rebootDeviceBtn');
+            btn.innerHTML = '<div class="loading"></div> Rebooting...';
+            btn.disabled = true;
+
+            updateRebootStatus('Sending reboot command...', 'info');
+
+            // Send reboot request
+            socket.emit('rebootDevice', {
+                deviceId,
+                requestId,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`Requesting device reboot for: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.rebootDevice = setTimeout(() => {
+                btn.innerHTML = '🔄 Reboot Device';
+                btn.disabled = false;
+                buttonTimeouts.rebootDevice = null;
+            }, 15000);
+        }
+
+        // Factory reset device
+        function factoryResetDevice() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            const confirmationCode = document.getElementById('confirmationCodeInput').value.trim();
+
+            if (!deviceId) {
+                alert('Please select a device first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            if (confirmationCode !== 'FACTORY_RESET_CONFIRMED') {
+                alert('❌ Invalid confirmation code!\n\nYou must type exactly: FACTORY_RESET_CONFIRMED');
+                return;
+            }
+
+            // Double confirmation dialog
+            if (!confirm('🚨 FINAL WARNING 🚨\n\nThis will PERMANENTLY ERASE ALL DATA on the device!\n\n- All apps will be removed\n- All settings will be reset\n- All user data will be deleted\n- Device will return to factory state\n\nThis action CANNOT be undone!\n\nAre you ABSOLUTELY SURE?')) {
+                return;
+            }
+
+            const requestId = `factoryreset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Update UI
+            const btn = document.getElementById('factoryResetBtn');
+            btn.innerHTML = '<div class="loading"></div> Resetting...';
+            btn.disabled = true;
+
+            updateFactoryResetStatus('Sending factory reset command...', 'info');
+
+            // Send factory reset request
+            socket.emit('factoryReset', {
+                deviceId,
+                requestId,
+                confirmationCode,
+                requestingDeviceId: 'admin'
+            });
+
+            addLog(`⚠️ FACTORY RESET requested for device: ${deviceId}`, 'system');
+
+            // Reset button after timeout
+            buttonTimeouts.factoryReset = setTimeout(() => {
+                btn.innerHTML = '⚠️ Factory Reset Device';
+                btn.disabled = false;
+                buttonTimeouts.factoryReset = null;
+            }, 20000);
+        }
+
         // Check health
         function checkHealth() {
             const deviceId = document.getElementById('deviceSelect').value;
@@ -1410,6 +2311,114 @@
         // Update restart status
         function updateRestartStatus(message, type = 'info') {
             const statusDiv = document.getElementById('restartStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update device owner status display
+        function updateDeviceOwnerStatusDisplay(message, type = 'info') {
+            const statusDiv = document.getElementById('deviceOwnerStatusDisplay');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update device owner test results
+        function updateDeviceOwnerResults(data) {
+            console.log('🔐 Device owner test response received:', data);
+
+            // Show results section
+            const resultsSection = document.getElementById('deviceOwnerResults');
+            resultsSection.style.display = 'block';
+
+            // Update device owner status
+            const isDeviceOwner = data.isDeviceOwner || false;
+            const doIsDeviceOwnerEl = document.getElementById('doIsDeviceOwner');
+            doIsDeviceOwnerEl.textContent = isDeviceOwner ? 'Yes' : 'No';
+            doIsDeviceOwnerEl.className = `health-value ${isDeviceOwner ? 'healthy' : 'error'}`;
+
+            // Update admin active status
+            const isAdminActive = data.isAdminActive || false;
+            const doIsAdminActiveEl = document.getElementById('doIsAdminActive');
+            doIsAdminActiveEl.textContent = isAdminActive ? 'Yes' : 'No';
+            doIsAdminActiveEl.className = `health-value ${isAdminActive ? 'healthy' : 'error'}`;
+
+            // Update lock-task mode status
+            if (data.lockTaskStatus) {
+                // lockTaskModeState: 0 = LOCK_TASK_MODE_NONE, 1 = LOCK_TASK_MODE_LOCKED, 2 = LOCK_TASK_MODE_PINNED
+                const lockTaskModeState = data.lockTaskStatus.lockTaskModeState !== undefined ? data.lockTaskStatus.lockTaskModeState : 0;
+                const isInLockTaskMode = lockTaskModeState > 0; // Active if state is 1 or 2
+
+                const doIsInLockTaskModeEl = document.getElementById('doIsInLockTaskMode');
+                doIsInLockTaskModeEl.textContent = isInLockTaskMode ? 'Active' : 'Inactive';
+                doIsInLockTaskModeEl.className = `health-value ${isInLockTaskMode ? 'healthy' : 'warning'}`;
+
+                const doLockTaskModeStateEl = document.getElementById('doLockTaskModeState');
+                let stateText = 'Unknown';
+                let stateClass = 'unknown';
+
+                if (lockTaskModeState === 0) {
+                    stateText = 'None (0)';
+                    stateClass = 'warning';
+                } else if (lockTaskModeState === 1) {
+                    stateText = 'Locked (1)';
+                    stateClass = 'healthy';
+                } else if (lockTaskModeState === 2) {
+                    stateText = 'Pinned (2)';
+                    stateClass = 'healthy';
+                }
+
+                doLockTaskModeStateEl.textContent = stateText;
+                doLockTaskModeStateEl.className = `health-value ${stateClass}`;
+            }
+
+            // Update device owner info
+            if (data.deviceOwnerInfo) {
+                const packageName = data.deviceOwnerInfo.packageName || '-';
+                const adminComponent = data.deviceOwnerInfo.adminComponent || '-';
+
+                document.getElementById('doPackageName').textContent = `Package: ${packageName}`;
+                document.getElementById('doAdminComponent').textContent = `Component: ${adminComponent}`;
+            }
+        }
+
+        // Update kiosk control status
+        function updateKioskControlStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('kioskControlStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update app visibility status
+        function updateAppVisibilityStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('appVisibilityStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update uninstall protection status
+        function updateUninstallProtectionStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('uninstallProtectionStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update clear app data status
+        function updateClearAppDataStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('clearAppDataStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update reboot status
+        function updateRebootStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('rebootStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-display ${type}`;
+        }
+
+        // Update factory reset status
+        function updateFactoryResetStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('factoryResetStatus');
             statusDiv.textContent = message;
             statusDiv.className = `status-display ${type}`;
         }
@@ -1475,8 +2484,23 @@
             document.getElementById('deviceModel').textContent = healthData.deviceModel || 'Unknown';
             document.getElementById('androidVersion').textContent = healthData.androidVersion || 'Unknown';
             document.getElementById('appVersion').textContent = healthData.appVersion || 'Unknown';
-            document.getElementById('deviceUptime').textContent =
-                healthData.uptime ? healthData.uptime.formattedUptime : 'Unknown';
+
+            // Handle both old format (single uptime) and new format (separate uptimes)
+            if (healthData.deviceUptime && healthData.appUptime) {
+                // New format with separate uptimes
+                document.getElementById('deviceUptime').textContent =
+                    healthData.deviceUptime.formattedUptime || 'Unknown';
+                document.getElementById('appUptime').textContent =
+                    healthData.appUptime.formattedUptime || 'Unknown';
+            } else if (healthData.uptime) {
+                // Old format - show same uptime for both (backward compatibility)
+                const uptimeText = healthData.uptime.formattedUptime || 'Unknown';
+                document.getElementById('deviceUptime').textContent = uptimeText;
+                document.getElementById('appUptime').textContent = uptimeText;
+            } else {
+                document.getElementById('deviceUptime').textContent = 'Unknown';
+                document.getElementById('appUptime').textContent = 'Unknown';
+            }
         }
 
         // Update basic health status (for simple view)
@@ -1506,11 +2530,28 @@
                 networkEl.className = `health-value ${healthData.network.isConnected ? 'healthy' : 'error'}`;
             }
 
-            // Uptime status
-            if (healthData.uptime) {
-                const uptimeEl = document.getElementById('uptimeStatus');
-                uptimeEl.textContent = healthData.uptime.formattedUptime;
-                uptimeEl.className = 'health-value healthy';
+            // TV Uptime status
+            if (healthData.deviceUptime) {
+                const tvUptimeEl = document.getElementById('tvUptimeStatus');
+                tvUptimeEl.textContent = healthData.deviceUptime.formattedUptime;
+                tvUptimeEl.className = 'health-value healthy';
+            } else if (healthData.uptime) {
+                // Backward compatibility
+                const tvUptimeEl = document.getElementById('tvUptimeStatus');
+                tvUptimeEl.textContent = healthData.uptime.formattedUptime;
+                tvUptimeEl.className = 'health-value healthy';
+            }
+
+            // App Uptime status
+            if (healthData.appUptime) {
+                const appUptimeEl = document.getElementById('appUptimeStatus');
+                appUptimeEl.textContent = healthData.appUptime.formattedUptime;
+                appUptimeEl.className = 'health-value healthy';
+            } else if (healthData.uptime) {
+                // Backward compatibility
+                const appUptimeEl = document.getElementById('appUptimeStatus');
+                appUptimeEl.textContent = healthData.uptime.formattedUptime;
+                appUptimeEl.className = 'health-value healthy';
             }
 
             // Socket status
@@ -1786,6 +2827,16 @@
             document.getElementById('cleanUsbBtn').disabled = !deviceSelected || !connected;
             document.getElementById('healthCheckBtn').disabled = !deviceSelected || !connected;
             document.getElementById('restartAppBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('deviceOwnerStatusBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('startKioskBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('stopKioskBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('hideAppBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('showAppBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('blockUninstallBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('allowUninstallBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('clearAppDataBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('rebootDeviceBtn').disabled = !deviceSelected || !connected;
+            document.getElementById('factoryResetBtn').disabled = !deviceSelected || !connected;
         }
 
         // Handle device selection change
@@ -1813,8 +2864,10 @@
             document.getElementById('storageStatus').className = 'health-value unknown';
             document.getElementById('networkStatus').textContent = '-';
             document.getElementById('networkStatus').className = 'health-value unknown';
-            document.getElementById('uptimeStatus').textContent = '-';
-            document.getElementById('uptimeStatus').className = 'health-value unknown';
+            document.getElementById('tvUptimeStatus').textContent = '-';
+            document.getElementById('tvUptimeStatus').className = 'health-value unknown';
+            document.getElementById('appUptimeStatus').textContent = '-';
+            document.getElementById('appUptimeStatus').className = 'health-value unknown';
             document.getElementById('socketStatus').textContent = '-';
             document.getElementById('socketStatus').className = 'health-value unknown';
 
@@ -1826,6 +2879,7 @@
             document.getElementById('androidVersion').textContent = '-';
             document.getElementById('appVersion').textContent = '-';
             document.getElementById('deviceUptime').textContent = '-';
+            document.getElementById('appUptime').textContent = '-';
 
             // Reset detailed sections
             resetDetailedSections();
