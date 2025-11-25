@@ -16,6 +16,9 @@ let io;
 // Track processed requests to prevent duplicate emissions when multiple clients are connected
 const processedRequests = new Set();
 
+// In-memory state storage for device states
+const deviceStates = new Map(); // deviceId -> { appState, tvState, systemState, playerState, lastUpdate }
+
 // Clean up processed requests every 5 minutes to prevent memory leaks
 setInterval(() => {
   const size = processedRequests.size;
@@ -295,6 +298,156 @@ module.exports = {
 
         // Broadcast to all admin clients
         io.emit('appRestarted', data);
+      });
+
+      // ===== STATE MONITORING EVENTS =====
+
+      // Listen for app state changes
+      socket.on('appStateChanged', (data) => {
+        const { deviceId, state, timestamp } = data;
+        console.log(`App state changed for device ${deviceId}: ${state}`);
+
+        // Update in-memory state
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+        deviceState.appState = { state, timestamp: timestamp || Date.now() };
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('appStateChanged', data);
+      });
+
+      // Listen for TV state changes
+      socket.on('tvStateChanged', (data) => {
+        const { deviceId, state, timestamp } = data;
+        console.log(`TV state changed for device ${deviceId}: ${state}`);
+
+        // Update in-memory state
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+        deviceState.tvState = { state, timestamp: timestamp || Date.now() };
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('tvStateChanged', data);
+      });
+
+      // Listen for system state changes
+      socket.on('systemStateChanged', (data) => {
+        const { deviceId, state, timestamp } = data;
+        console.log(`System state changed for device ${deviceId}: ${state}`);
+
+        // Update in-memory state
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+        deviceState.systemState = { state, timestamp: timestamp || Date.now() };
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('systemStateChanged', data);
+      });
+
+      // Listen for player state changes
+      socket.on('playerStateChanged', (data) => {
+        const { deviceId, playerState, bufferPercentage, isStuck, currentAd, timestamp } = data;
+        console.log(`Player state changed for device ${deviceId}: ${playerState}`);
+
+        // Update in-memory state
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+        deviceState.playerState = {
+          playerState,
+          bufferPercentage,
+          isStuck,
+          currentAd,
+          timestamp: timestamp || Date.now()
+        };
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('playerStateChanged', data);
+      });
+
+      // Listen for state heartbeat (periodic complete state snapshot)
+      socket.on('stateHeartbeat', (data) => {
+        const { deviceId } = data;
+        console.log(`State heartbeat received from device ${deviceId}`);
+
+        // Update in-memory state with complete snapshot
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+
+        if (data.appState) deviceState.appState = data.appState;
+        if (data.tvState) deviceState.tvState = data.tvState;
+        if (data.systemState) deviceState.systemState = data.systemState;
+        if (data.playerState) deviceState.playerState = data.playerState;
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('stateHeartbeat', data);
+      });
+
+      // Listen for device state requests from admin
+      socket.on('requestDeviceState', (data) => {
+        const { deviceId, requestId } = data;
+
+        // Prevent duplicate processing
+        if (processedRequests.has(requestId)) {
+          console.log(`[Dedup] Duplicate state request ignored: ${requestId} from socket ${socket.id}`);
+          return;
+        }
+        processedRequests.add(requestId);
+
+        console.log(`Device state request for device ${deviceId}, requestId: ${requestId}`);
+
+        // Forward to specific device using room
+        const deviceRoom = `device_${deviceId}`;
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+
+        if (socketsInRoom && socketsInRoom.size > 0) {
+          io.to(deviceRoom).emit(`requestDeviceState/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted requestDeviceState to room ${deviceRoom} (${socketsInRoom.size} sockets)`);
+        } else {
+          io.emit(`requestDeviceState/${deviceId}`, {
+            requestId,
+            adminSocketId: socket.id
+          });
+          console.log(`Emitted requestDeviceState broadcast (device not in room)`);
+        }
+      });
+
+      // Listen for device state responses
+      socket.on('deviceStateResponse', (data) => {
+        const { deviceId } = data;
+        console.log(`Device state response received from device ${deviceId}`);
+
+        // Update in-memory state with response
+        if (!deviceStates.has(deviceId)) {
+          deviceStates.set(deviceId, {});
+        }
+        const deviceState = deviceStates.get(deviceId);
+
+        if (data.appState) deviceState.appState = data.appState;
+        if (data.tvState) deviceState.tvState = data.tvState;
+        if (data.systemState) deviceState.systemState = data.systemState;
+        if (data.playerState) deviceState.playerState = data.playerState;
+        deviceState.lastUpdate = Date.now();
+
+        // Broadcast to all admin clients
+        io.emit('deviceStateResponse', data);
       });
 
       // ===== LOG STREAMING EVENTS =====
@@ -589,5 +742,15 @@ module.exports = {
       throw new Error('Socket.io not initialized!');
     }
     return io;
+  },
+  // Helper functions for state management
+  getDeviceState: (deviceId) => {
+    return deviceStates.get(deviceId) || null;
+  },
+  getAllDeviceStates: () => {
+    return Object.fromEntries(deviceStates);
+  },
+  clearDeviceState: (deviceId) => {
+    deviceStates.delete(deviceId);
   }
 };
