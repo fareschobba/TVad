@@ -622,9 +622,134 @@
                 max-height: 300px;
             }
         }
+
+        /* Toast Notification Styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+        }
+
+        .toast {
+            background: rgba(30, 41, 59, 0.98);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border: 2px solid;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+            min-width: 320px;
+        }
+
+        .toast.success {
+            border-color: rgba(34, 197, 94, 0.5);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(34, 197, 94, 0.1) 100%);
+        }
+
+        .toast.error {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(239, 68, 68, 0.1) 100%);
+        }
+
+        .toast.warning {
+            border-color: rgba(251, 191, 36, 0.5);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(251, 191, 36, 0.1) 100%);
+        }
+
+        .toast.info {
+            border-color: rgba(59, 130, 246, 0.5);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(59, 130, 246, 0.1) 100%);
+        }
+
+        .toast-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .toast.success .toast-icon { color: #4ade80; }
+        .toast.error .toast-icon { color: #f87171; }
+        .toast.warning .toast-icon { color: #fbbf24; }
+        .toast.info .toast-icon { color: #60a5fa; }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #f1f5f9;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #cbd5e1;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: rgba(148, 163, 184, 0.2);
+            color: #f1f5f9;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .toast.removing {
+            animation: slideOut 0.3s ease-in forwards;
+        }
     </style>
 </head>
 <body>
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="dashboard">
         <div class="header">
             <h1>🎛️ Log Management Dashboard</h1>
@@ -878,6 +1003,50 @@
             'ForegroundService'
         ];
 
+        // Toast notification system
+        function showToast(title, message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || icons.info}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="removeToast(this.parentElement)">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    removeToast(toast);
+                }, duration);
+            }
+
+            return toast;
+        }
+
+        function removeToast(toast) {
+            if (!toast) return;
+            toast.classList.add('removing');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 300);
+        }
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             // Check authentication first
@@ -1028,9 +1197,11 @@
                 if (data.success) {
                     updateCacheStatus(`✅ ${data.message}`, 'success');
                     addSystemLog(`Cache cleared successfully on ${data.deviceId}: ${data.message}`);
+                    showToast('Cache Cleared', data.message, 'success', 5000);
                 } else {
                     updateCacheStatus(`❌ ${data.message}`, 'error');
                     addSystemLog(`Cache clear failed on ${data.deviceId}: ${data.message}`, 'error');
+                    showToast('Cache Clear Failed', data.message, 'error', 7000);
                 }
             });
 
@@ -1051,9 +1222,11 @@
 
                 if (data.error) {
                     addSystemLog(`Health check failed on ${data.deviceId}: ${data.errorMessage}`, 'error');
+                    showToast('Health Check Failed', data.errorMessage, 'error', 7000);
                 } else {
                     addSystemLog(`Health check completed for ${data.deviceId}`);
                     updateHealthStatus(data);
+                    showToast('Health Check Complete', `Device ${data.deviceId} health status updated`, 'success', 4000);
                 }
             });
         }
@@ -1928,6 +2101,16 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 buttonTimeouts.clearCache = null;
+
+                // Show timeout notification
+                showToast(
+                    'Cache Clear Timeout',
+                    `No response received from device ${deviceId}. The device may be offline or unresponsive.`,
+                    'error',
+                    7000
+                );
+                updateCacheStatus('Request timed out - device may be offline', 'error');
+                addSystemLog(`Cache clear request timed out for device: ${deviceId}`);
             }, 10000);
         }
 
@@ -1977,6 +2160,15 @@
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 buttonTimeouts.healthCheck = null;
+
+                // Show timeout notification
+                showToast(
+                    'Health Check Timeout',
+                    `No response received from device ${deviceId}. The device may be offline or unresponsive.`,
+                    'error',
+                    7000
+                );
+                addSystemLog(`Health check request timed out for device: ${deviceId}`);
             }, 10000);
         }
 
