@@ -305,7 +305,8 @@ module.exports = {
       // Listen for app state changes
       socket.on('appStateChanged', (data) => {
         const { deviceId, state, timestamp } = data;
-        console.log(`App state changed for device ${deviceId}: ${state}`);
+        console.log(`✅ [BACKEND] Received appStateChanged for device ${deviceId}: ${state}`);
+        console.log(`📦 [BACKEND] appStateChanged Data:`, JSON.stringify(data, null, 2));
 
         // Update in-memory state
         if (!deviceStates.has(deviceId)) {
@@ -316,7 +317,9 @@ module.exports = {
         deviceState.lastUpdate = Date.now();
 
         // Broadcast to all admin clients
+        console.log(`📡 [BACKEND] Broadcasting appStateChanged to all web clients`);
         io.emit('appStateChanged', data);
+        console.log(`✅ [BACKEND] appStateChanged broadcasted successfully`);
       });
 
       // Listen for TV state changes
@@ -356,7 +359,8 @@ module.exports = {
       // Listen for player state changes
       socket.on('playerStateChanged', (data) => {
         const { deviceId, playerState, bufferPercentage, isStuck, currentAd, timestamp } = data;
-        console.log(`Player state changed for device ${deviceId}: ${playerState}`);
+        console.log(`✅ [BACKEND] Received playerStateChanged for device ${deviceId}: ${playerState}`);
+        console.log(`📦 [BACKEND] playerStateChanged Data:`, JSON.stringify(data, null, 2));
 
         // Update in-memory state
         if (!deviceStates.has(deviceId)) {
@@ -373,7 +377,9 @@ module.exports = {
         deviceState.lastUpdate = Date.now();
 
         // Broadcast to all admin clients
+        console.log(`📡 [BACKEND] Broadcasting playerStateChanged to all web clients`);
         io.emit('playerStateChanged', data);
+        console.log(`✅ [BACKEND] playerStateChanged broadcasted successfully`);
       });
 
       // Listen for state heartbeat (periodic complete state snapshot)
