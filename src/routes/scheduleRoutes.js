@@ -14,17 +14,18 @@ const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Important: Put specific routes BEFORE parameter routes
-router.get('/filter',  getSchedulesByFilter);  // Changed from /search to /filter
+// IMPORTANT: literal/specific routes MUST be declared before the '/:id' param route.
+// Otherwise GET /archives matches '/:id' (id='archives') and 500s on an invalid ObjectId.
+router.get('/filter', getSchedulesByFilter);  // Changed from /search to /filter
+router.get('/archives', protect, getArchivedSchedules);
+router.put('/archives/:id', protect, archiveSchedule);
+router.delete('/deleteById/:id', protect, deleteScheduleById);
 
-// Then put the parameter routes
-router.get('/:id', getAllSchedules);
+// Parameter routes
+router.get('/:id/:userId', protect, getScheduleById);
+router.get('/:id', protect, getAllSchedules);
 router.post('/', protect, createSchedule);
 router.put('/:id', protect, updateSchedule);
-router.get('/:id/:userId', protect, getScheduleById);
 router.delete('/:id', protect, deleteSchedule);
-router.put('/archives/:id', protect, archiveSchedule);
-router.get('/archives', protect, getArchivedSchedules);
-router.delete('/deleteById/:id', protect, deleteScheduleById);
 
 module.exports = router;

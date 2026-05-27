@@ -31,7 +31,8 @@ const login = async (req, res) => {
     }
 
     // 2. Find user and check password
-    const user = await AdminUser.findOne({ username, isDeleted: false }).select('+password');
+    // Coerce to string to prevent NoSQL operator injection (e.g. {"username":{"$gt":""}})
+    const user = await AdminUser.findOne({ username: String(username), isDeleted: false }).select('+password');
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,

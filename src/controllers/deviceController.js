@@ -87,8 +87,8 @@ const getDeviceByNameOrId = async (req, res) => {
 
     let query = { isDeleted: false };
 
-    // If not admin, only show user's devices
-    if (userRole !== 'admin') {
+    // If not admin/superadmin, only show user's own devices
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
       query.userId = userId;
     }
 
@@ -125,10 +125,15 @@ const getDeviceByNameOrId = async (req, res) => {
 const updateDevice = async (req, res) => {
   try {
     const { name, description, orientation } = req.body;
-    
+
+    const userId = req.user._id;
+    const userRole = req.user.role;
     let query = { _id: req.params.id, isDeleted: false };
-    // If not admin, only allow updating own devices
-  
+    // If not admin/SUPERADMIN, only allow updating own devices
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+
     if (name) {
       const existingDevice = await Device.findOne({
         name,
@@ -211,8 +216,8 @@ const getDeviceById = async (req, res) => {
     const userRole = req.user.role;
 
     let query = { _id: req.params.id, isDeleted: false };
-    // If not admin, only show user's devices
-    if (userRole !== 'admin') {
+    // If not admin/superadmin, only show user's own devices
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
       query.userId = userId;
     }
 
@@ -273,47 +278,59 @@ const undeleteDevice = async (req, res) => {
   }
 };
 
-// Pair device
+// Pair device — PUBLIC endpoint (no JWT). Called by Android at first boot.
+// Defensive controls applied at the route layer (pairLimiter) + here (validation, audit).
+const { audit } = require('../utils/audit');
+const crypto = require('crypto');
+
+// K2: hash the device socket secret with SHA-256. The secret is high-entropy random
+// (32 bytes), so a fast hash is appropriate — and it runs on every device reconnect.
+const hashDeviceSecret = (secret) => crypto.createHash('sha256').update(secret).digest('hex');
+
 const pairDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    // const userId = req.user._id;
-    // const userRole = req.user.role;
 
-    let query = { deviceId: id, isDeleted: false };
-    // If not admin, only allow pairing own devices
-    // if (userRole !== 'admin') {
-    //   query.userId = userId;
-    // }
+    // Reject malformed deviceIds before hitting Mongo.
+    if (!id || typeof id !== 'string' || !/^[A-Za-z0-9]{1,32}$/.test(id)) {
+      audit({ event: 'pairDevice', actorIp: req.ip, result: 'denied', reason: 'invalid_id', payload: { id } });
+      return res.status(400).json({ success: false, message: 'Invalid device id' });
+    }
 
-    const device = await Device.findOne(query);
+    const device = await Device.findOne({ deviceId: id, isDeleted: false });
 
     if (!device) {
-      return res.status(404).json({
-        success: false,
-        message: 'Device not found or access denied'
-      });
+      audit({ event: 'pairDevice', actorIp: req.ip, deviceId: id, result: 'denied', reason: 'not_found' });
+      return res.status(404).json({ success: false, message: 'Device not found' });
     }
 
     if (device.isPaired) {
-      return res.status(400).json({
-        success: false,
-        message: 'Device is already paired'
-      });
+      audit({ event: 'pairDevice', actorIp: req.ip, deviceId: id, result: 'denied', reason: 'already_paired' });
+      return res.status(400).json({ success: false, message: 'Device is already paired' });
     }
 
+    // K2: issue a one-time device socket secret. Store only its hash; return the plaintext
+    // to the device exactly once (it persists it and presents it on every socket handshake).
+    const deviceSecret = crypto.randomBytes(32).toString('hex');
+    device.socketSecretHash = hashDeviceSecret(deviceSecret);
     device.isPaired = true;
     await device.save();
 
-    res.status(200).json({
-      success: true,
-      data: device
+    audit({
+      event: 'pairDevice',
+      actorIp: req.ip,
+      deviceId: id,
+      deviceOwnerId: device.userId,
+      result: 'allowed'
     });
+
+    // Strip the hash from the returned device; expose the plaintext secret only here.
+    const data = device.toObject();
+    delete data.socketSecretHash;
+    res.status(200).json({ success: true, data, deviceSecret });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Unable to pair device. Please try again later.'
-    });
+    audit({ event: 'pairDevice', actorIp: req.ip, result: 'error', reason: error.message });
+    res.status(500).json({ success: false, message: 'Unable to pair device. Please try again later.' });
   }
 };
 
@@ -325,8 +342,8 @@ const unpair = async (req, res) => {
     const userRole = req.user.role;
 
     let query = { deviceId: id, isDeleted: false };
-    // If not admin, only allow unpairing own devices
-    if (userRole !== 'admin') {
+    // If not admin/superadmin, only allow unpairing own devices
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
       query.userId = userId;
     }
 
@@ -434,8 +451,8 @@ const clearDeviceCache = async (req, res) => {
       });
     }
 
-    // Emit cache clear request
-    io.emit(`clearCache/${deviceId}`, {
+    // Emit cache clear request to the device's room only (not all sockets)
+    io.to(`device_${deviceId}`).emit(`clearCache/${deviceId}`, {
       cacheType,
       requestId,
       adminSocketId: `api_${userId}`
@@ -495,8 +512,8 @@ const requestDeviceHealthCheck = async (req, res) => {
       });
     }
 
-    // Emit health check request
-    io.emit(`healthCheck/${deviceId}`, {
+    // Emit health check request to the device's room only (not all sockets)
+    io.to(`device_${deviceId}`).emit(`healthCheck/${deviceId}`, {
       requestId,
       adminSocketId: `api_${userId}`
     });
@@ -525,13 +542,15 @@ const cleanUsbStorage = async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { cleanType = 'all' } = req.body;
-    const userId = req.user?._id || 'anonymous';
+    const userId = req.user._id;
+    const userRole = req.user.role;
 
-    // Validate device exists
-    const device = await Device.findOne({
-      deviceId,
-      isDeleted: false
-    });
+    // Validate device exists (owner-scoped unless admin/SUPERADMIN)
+    const query = { deviceId, isDeleted: false };
+    if (userRole !== 'admin' && userRole !== 'SUPERADMIN') {
+      query.userId = userId;
+    }
+    const device = await Device.findOne(query);
 
     if (!device) {
       return res.status(404).json({
@@ -554,8 +573,8 @@ const cleanUsbStorage = async (req, res) => {
       });
     }
 
-    // Emit USB storage clean request
-    io.emit(`cleanUsbStorage/${deviceId}`, {
+    // Emit USB storage clean request to the device's room only (not all sockets)
+    io.to(`device_${deviceId}`).emit(`cleanUsbStorage/${deviceId}`, {
       cleanType,
       requestId,
       adminSocketId: `api_${userId}`
@@ -615,8 +634,8 @@ const restartApp = async (req, res) => {
       });
     }
 
-    // Emit app restart request
-    io.emit(`restartApp/${deviceId}`, {
+    // Emit app restart request to the device's room only (not all sockets)
+    io.to(`device_${deviceId}`).emit(`restartApp/${deviceId}`, {
       requestId,
       adminSocketId: `api_${userId}`
     });

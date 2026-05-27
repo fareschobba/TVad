@@ -41,6 +41,13 @@ const deviceSchema = new mongoose.Schema({
   isPaired: {
     type: Boolean,
     default: false
+  },
+  // K2 device socket auth: SHA-256 hash of the secret issued to the device at pairing.
+  // select:false so it is never returned by default queries or API responses.
+  socketSecretHash: {
+    type: String,
+    default: null,
+    select: false
   }
 });
 

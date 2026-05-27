@@ -12,6 +12,24 @@ const options = {
   }
 };
 
+// SSRF defense: only allow genuine YouTube hosts (ytdl trusts whatever URL it's given).
+const ALLOWED_YT_HOSTS = new Set([
+  'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com',
+  'youtu.be', 'www.youtu.be'
+]);
+// DoS defense: cap video length and download size so a long/huge video can't fill the disk.
+const MAX_DURATION_SECONDS = 60 * 60;            // 1 hour
+const MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024;    // 500 MB
+
+function isAllowedYouTubeUrl(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return ALLOWED_YT_HOSTS.has(host);
+  } catch {
+    return false;
+  }
+}
+
 class YouTubeService {
   constructor() {
     this.tempDir = UPLOAD_DIRS.temp;
@@ -42,7 +60,7 @@ class YouTubeService {
 
   async validateYouTubeUrl(url) {
     try {
-      return ytdl.validateURL(url);
+      return isAllowedYouTubeUrl(url) && ytdl.validateURL(url);
     } catch (error) {
       return false;
     }
@@ -50,11 +68,14 @@ class YouTubeService {
 
   async getVideoInfo(url) {
     try {
-      if (!ytdl.validateURL(url)) {
+      if (!isAllowedYouTubeUrl(url) || !ytdl.validateURL(url)) {
         throw new Error('Invalid YouTube URL');
       }
 
       const info = await ytdl.getInfo(url, options);
+      if (parseInt(info.videoDetails.lengthSeconds) > MAX_DURATION_SECONDS) {
+        throw new Error('Video exceeds the maximum allowed duration');
+      }
       const formats = ytdl.filterFormats(info.formats, 'videoandaudio');
 
       return {
@@ -77,11 +98,14 @@ class YouTubeService {
   async downloadVideo(url, quality = 'highest') {
     let filePath = null;
     try {
-      if (!ytdl.validateURL(url)) {
+      if (!isAllowedYouTubeUrl(url) || !ytdl.validateURL(url)) {
         throw new Error('Invalid YouTube URL');
       }
 
       const info = await ytdl.getInfo(url, options);
+      if (parseInt(info.videoDetails.lengthSeconds) > MAX_DURATION_SECONDS) {
+        throw new Error('Video exceeds the maximum allowed duration');
+      }
       const videoTitle = info.videoDetails.title.replace(/[^\w\s]/gi, '');
       const fileName = `${Date.now()}-${videoTitle}.mp4`;
       filePath = path.join(this.tempDir, fileName);
@@ -91,6 +115,15 @@ class YouTubeService {
           ...options,
           quality: quality === 'highest' ? 'highestvideo' : quality,
           filter: 'audioandvideo'
+        });
+
+        // Abort if the stream exceeds the size cap (disk-fill DoS guard).
+        let downloadedBytes = 0;
+        video.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          if (downloadedBytes > MAX_DOWNLOAD_BYTES) {
+            video.destroy(new Error('Video exceeds the maximum allowed size'));
+          }
         });
 
         video.on('error', async (error) => {

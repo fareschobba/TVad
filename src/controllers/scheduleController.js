@@ -41,7 +41,9 @@ const checkScheduleOverlap = async (
 const getAllSchedules = async (req, res) => {
   try {
     const userId = req.params.id;
-    console.log("user",userId)
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user id' });
+    }
     // Only show schedules for devices owned by the user
     const userDevices = await Device.find({ userId: userId });
     const deviceIds = userDevices.map(device => device._id);

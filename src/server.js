@@ -7,12 +7,15 @@ ensureDirectories();
 
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
 const dotenv = require('dotenv');
 const http = require('http');
 const path = require('path');
 const fs = require('fs').promises;
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('../swagger.json');
+const { generalApiLimiter } = require('./middleware/rateLimits');
 
 // Load environment variables
 dotenv.config();
@@ -40,15 +43,75 @@ fs.mkdir(uploadsDir, { recursive: true })
 // Initialize express app
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Trust proxy headers when deployed behind Vercel / Render / reverse proxy
+app.set('trust proxy', 1);
+
+// --- Security middleware ---
+// CORS allowlist parsed from CORS_ALLOWED_ORIGINS env (comma-separated).
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const isProd = process.env.NODE_ENV === 'production';
+if (allowedOrigins.length === 0) {
+  console.warn(
+    isProd
+      ? '[CORS] CORS_ALLOWED_ORIGINS is empty in production — all cross-origin browser requests will be DENIED. Set it to your admin origin(s).'
+      : '[CORS] CORS_ALLOWED_ORIGINS is empty — allowing all origins (development only).'
+  );
+}
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // No Origin header = same-origin / curl / native mobile client — always allowed.
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    // Empty allowlist: permit in dev for convenience, deny in production (fail-closed).
+    if (allowedOrigins.length === 0 && !isProd) return cb(null, true);
+    return cb(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+}));
+
+// Strict CSP by default — the API serves JSON; the only HTML is Swagger (own relaxed CSP below).
+// upgrade-insecure-requests removed so local http/Swagger isn't force-upgraded pre-TLS.
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'upgrade-insecure-requests': null
+    }
+  }
+}));
+
+// Rate-limit all /api/* requests as a baseline (route-level limiters add extra).
+app.use('/api/', generalApiLimiter);
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Strip MongoDB operator keys ($, .) from body/query/params — defense-in-depth against NoSQL injection.
+app.use(mongoSanitize());
 // Serve static files (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Add this before your routes
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// Swagger UI needs inline styles/scripts — give it a scoped, relaxed CSP instead of the strict global one.
+const swaggerCsp = helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'style-src': ["'self'", "'unsafe-inline'", 'https:'],
+      'img-src': ["'self'", 'data:', 'https:'],
+      'font-src': ["'self'", 'https:', 'data:'],
+      'connect-src': ["'self'"]
+    }
+  }
+});
+app.use('/api-docs', swaggerCsp, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -85,96 +148,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Login route (public)
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'login.html'));
-});
-
-// Change password route
-app.get('/change-password', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'change-password.html'));
-});
-
-// Middleware to check authentication for dashboard routes
-const checkAuthForDashboard = async (req, res, next) => {
-  try {
-    // Check for token in various places
-    const authHeader = req.headers.authorization;
-    const tokenFromQuery = req.query.token;
-    const tokenFromCookie = req.cookies?.authToken;
-
-    let token = null;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (tokenFromQuery) {
-      token = tokenFromQuery;
-    } else if (tokenFromCookie) {
-      token = tokenFromCookie;
-    }
-
-    // If no token found, redirect to login
-    if (!token) {
-      const redirectUrl = encodeURIComponent(req.originalUrl);
-      return res.redirect(`/login?redirect=${redirectUrl}`);
-    }
-
-    // Verify the token
-    const jwt = require('jsonwebtoken');
-    const AdminUser = require('./models/adminUser');
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await AdminUser.findById(decoded.id);
-
-      if (!user || user.isDeleted || !user.isActive) {
-        const redirectUrl = encodeURIComponent(req.originalUrl);
-        return res.redirect(`/login?redirect=${redirectUrl}&error=invalid_token`);
-      }
-
-      // Token is valid, proceed
-      next();
-    } catch (jwtError) {
-      // Invalid token, redirect to login
-      const redirectUrl = encodeURIComponent(req.originalUrl);
-      return res.redirect(`/login?redirect=${redirectUrl}&error=invalid_token`);
-    }
-  } catch (error) {
-    console.error('Dashboard auth check error:', error);
-    const redirectUrl = encodeURIComponent(req.originalUrl);
-    return res.redirect(`/login?redirect=${redirectUrl}&error=server_error`);
-  }
-};
-
-// Device management dashboard route (public - frontend handles auth)
-app.get('/device-management', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'device_management.html'));
-});
-
-// Professional dashboard route (public - frontend handles auth)
-app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'professional_dashboard.html'));
-});
-
-// App restart test route
-app.get('/test/restart-app', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'test_restart_app.html'));
-});
-
-// Restart debug test route
-app.get('/test/restart-debug', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'test_restart_debug.html'));
-});
-
-// Duplicate prevention test route
-app.get('/test/duplicate-prevention', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'test_duplicate_prevention.html'));
-});
-
-// Dark mode demo route
-app.get('/demo/dark-mode', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'dark_mode_demo.html'));
-});
+// Legacy HTML dashboards (/login, /change-password, /device-management, /dashboard) and
+// the unused checkAuthForDashboard guard were removed — the Angular admin app fully
+// replaces them. The backend now serves only the JSON API + Swagger.
 
 // Database connection
 const mongooseOptions = {
@@ -205,9 +181,12 @@ app.get("/", (req, res) => res.send("Express with Socket.IO"));
 // Basic error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  // Don't leak internal error details to clients on 5xx in production.
+  const expose = status < 500 || process.env.NODE_ENV !== 'production';
+  res.status(status).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: expose ? (err.message || 'Internal Server Error') : 'Internal Server Error',
   });
 });
 

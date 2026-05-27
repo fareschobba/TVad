@@ -44,9 +44,13 @@ const createClient = async (req, res) => {
 // Update client profile
 const updateProfile = async (req, res) => {
   try {
-    const { username, email, phoneNumber,userId } = req.body;
+    const { username, email, phoneNumber, userId } = req.body;
 
-    const user = await AdminUser.findById(userId);
+    // Clients may only edit their own profile; admin/SUPERADMIN may target any userId.
+    const isPrivileged = req.user.role === 'admin' || req.user.role === 'SUPERADMIN';
+    const targetId = isPrivileged ? (userId || req.user._id) : req.user._id;
+
+    const user = await AdminUser.findById(targetId);
     if (!user) {
       return res.status(404).json({
         success: false,
