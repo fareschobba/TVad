@@ -14,15 +14,7 @@ class B2Service {
     this.applicationKey = process.env.B2_APPLICATION_KEY;
     this.bucketId = process.env.B2_BUCKET_ID;
     this.bucketName = process.env.B2_BUCKET_NAME;
-    
-    // Add console.log to debug
-    console.log('B2 Config:', {
-      keyId: this.applicationKeyId,
-      bucketId: this.bucketId,
-      bucketName: this.bucketName,
-      applicationKey: this.applicationKey
-    });
-    
+
     this.authToken = null;
     this.apiUrl = null;
     this.downloadUrl = null;
