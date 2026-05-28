@@ -38,6 +38,7 @@ function docToTrack(doc) {
     },
     timers: {
       notPlayingSince: msOf(t.notPlayingSince),
+      notForegroundSince: msOf(t.notForegroundSince),
       lastAdValue: t.lastAdValue ?? null,
       lastAdChangedAt: msOf(t.lastAdChangedAt),
       lastStuckPulseAt: msOf(t.lastStuckPulseAt)
@@ -56,6 +57,7 @@ function trackToDoc(track) {
     lastSnapshot: track.lastSnapshot,
     timers: {
       notPlayingSince: dateOf(track.timers.notPlayingSince),
+      notForegroundSince: dateOf(track.timers.notForegroundSince),
       lastAdValue: track.timers.lastAdValue,
       lastAdChangedAt: dateOf(track.timers.lastAdChangedAt),
       lastStuckPulseAt: dateOf(track.timers.lastStuckPulseAt)
@@ -73,7 +75,13 @@ function newTrack(deviceId) {
     lastSeenAt: null,
     online: false,
     lastSnapshot: { playerState: null, currentAd: null, isStuck: false, appState: null },
-    timers: { notPlayingSince: null, lastAdValue: null, lastAdChangedAt: null, lastStuckPulseAt: null },
+    timers: {
+      notPlayingSince: null,
+      notForegroundSince: null,
+      lastAdValue: null,
+      lastAdChangedAt: null,
+      lastStuckPulseAt: null
+    },
     incidents
   };
 }

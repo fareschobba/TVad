@@ -174,6 +174,41 @@ describe('monitor scenarios', () => {
     expect(recovers.length).to.equal(0);
   });
 
+  it('BACKGROUNDED: sustained background past threshold fires ENTER; foreground triggers RECOVER', async () => {
+    // Online + appState='background' across ticks spanning > BACKGROUNDED threshold (5 min default).
+    const states = {
+      AB12C: { lastUpdate: DAY, appState: { state: 'background', timestamp: DAY },
+               playerState: { playerState: 'playing', currentAd: { index: 1, name: 'p' }, isStuck: false } }
+    };
+    const { monitor, emailer } = makeMonitor({ states, connected: { AB12C: true } });
+    await monitor.tick(DAY, { AB12C: true });                   // seeds notForegroundSince = DAY
+    await monitor.tick(DAY + 6 * MIN, { AB12C: true });          // 6 min > 5 min -> ENTER
+    const enters = emailer.sendDeviceAlert.getCalls().filter(c => c.args[0].kind === 'ENTER' && c.args[0].rule === 'BACKGROUNDED');
+    expect(enters.length).to.equal(1);
+    // App returns to foreground -> RECOVER
+    states.AB12C = { lastUpdate: DAY + 7 * MIN, appState: { state: 'foreground', timestamp: DAY + 7 * MIN },
+                     playerState: { playerState: 'playing', currentAd: { index: 1, name: 'p' }, isStuck: false } };
+    await monitor.tick(DAY + 7 * MIN, { AB12C: true });
+    const recovers = emailer.sendDeviceAlert.getCalls().filter(c => c.args[0].kind === 'RECOVER' && c.args[0].rule === 'BACKGROUNDED');
+    expect(recovers.length).to.equal(1);
+  });
+
+  it('BACKGROUNDED: no spurious RECOVER when a backgrounded device disconnects', async () => {
+    const states = {
+      AB12C: { lastUpdate: DAY, appState: { state: 'background', timestamp: DAY },
+               playerState: { playerState: 'playing', currentAd: { index: 1, name: 'p' }, isStuck: false } }
+    };
+    const { monitor, emailer } = makeMonitor({ states, connected: { AB12C: true } });
+    await monitor.tick(DAY, { AB12C: true });                   // seeds notForegroundSince
+    await monitor.tick(DAY + 6 * MIN, { AB12C: true });          // ENTER
+    // Device disconnects, still within OFFLINE threshold (15 min) since lastUpdate.
+    states.AB12C = { lastUpdate: DAY + 6 * MIN, appState: { state: 'background', timestamp: DAY + 6 * MIN },
+                     playerState: { playerState: 'playing', currentAd: { index: 1, name: 'p' }, isStuck: false } };
+    await monitor.tick(DAY + 7 * MIN, { AB12C: false });
+    const recovers = emailer.sendDeviceAlert.getCalls().filter(c => c.args[0].kind === 'RECOVER' && c.args[0].rule === 'BACKGROUNDED');
+    expect(recovers.length).to.equal(0);
+  });
+
   it('rate cap bounds the number of emails sent in a single tick', async () => {
     // Three simultaneously-offline devices, rate cap = 2 => at most 2 emails this tick.
     const states = {

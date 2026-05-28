@@ -1,5 +1,5 @@
 // src/config/alerts.js
-const RULE_IDS = ['OFFLINE', 'STOPPED', 'STUCK'];
+const RULE_IDS = ['OFFLINE', 'STOPPED', 'STUCK', 'BACKGROUNDED'];
 
 // Strip an inline "# comment" tail (only when preceded by whitespace, so a literal '#'
 // inside a real value is preserved) and trim. Defensive against .env files where dotenv
@@ -49,10 +49,13 @@ function loadAlertConfig(env = process.env) {
     rateWindowMs: num(env.ALERT_RATE_WINDOW_MIN, 10) * 60000,
     playingStates: (clean(env.ALERT_PLAYING_STATES) || 'playing')
       .split(',').map(s => s.trim()).filter(Boolean),
+    foregroundStates: (clean(env.ALERT_FOREGROUND_STATES) || 'foreground')
+      .split(',').map(s => s.trim()).filter(Boolean),
     rules: {
-      OFFLINE: { enabled: bool(env.ALERT_RULE_OFFLINE_ENABLED, true), thresholdMs: num(env.ALERT_OFFLINE_MINUTES, 15) * 60000 },
-      STOPPED: { enabled: bool(env.ALERT_RULE_STOPPED_ENABLED, true), thresholdMs: num(env.ALERT_STOPPED_MINUTES, 12) * 60000 },
-      STUCK:   { enabled: bool(env.ALERT_RULE_STUCK_ENABLED,   true), thresholdMs: num(env.ALERT_STUCK_MINUTES,   10) * 60000 }
+      OFFLINE:      { enabled: bool(env.ALERT_RULE_OFFLINE_ENABLED,      true), thresholdMs: num(env.ALERT_OFFLINE_MINUTES,      15) * 60000 },
+      STOPPED:      { enabled: bool(env.ALERT_RULE_STOPPED_ENABLED,      true), thresholdMs: num(env.ALERT_STOPPED_MINUTES,      12) * 60000 },
+      STUCK:        { enabled: bool(env.ALERT_RULE_STUCK_ENABLED,        true), thresholdMs: num(env.ALERT_STUCK_MINUTES,        10) * 60000 },
+      BACKGROUNDED: { enabled: bool(env.ALERT_RULE_BACKGROUNDED_ENABLED, true), thresholdMs: num(env.ALERT_BACKGROUNDED_MINUTES,  5) * 60000 }
     }
   };
 
@@ -61,6 +64,7 @@ function loadAlertConfig(env = process.env) {
   Object.freeze(cfg.rules.OFFLINE);
   Object.freeze(cfg.rules.STOPPED);
   Object.freeze(cfg.rules.STUCK);
+  Object.freeze(cfg.rules.BACKGROUNDED);
   Object.freeze(cfg.rules);
   return Object.freeze(cfg);
 }

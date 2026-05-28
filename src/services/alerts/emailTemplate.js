@@ -1,9 +1,10 @@
 // src/services/alerts/emailTemplate.js
 
 const RULE_LABELS = {
-  OFFLINE: 'Device Offline',
-  STOPPED: 'Playlist Stopped',
-  STUCK:   'Playlist Stuck'
+  OFFLINE:      'Device Offline',
+  STOPPED:      'Playlist Stopped',
+  STUCK:        'Playlist Stuck',
+  BACKGROUNDED: 'App Backgrounded'
 };
 
 const iso = (d) => (d instanceof Date ? d.toISOString() : (d ? new Date(d).toISOString() : 'n/a'));

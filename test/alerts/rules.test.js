@@ -1,13 +1,14 @@
 // test/alerts/rules.test.js
 const { expect } = require('chai');
-const { isOffline, isStopped, isStuck } = require('../../src/services/alerts/rules');
+const { isOffline, isStopped, isStuck, isBackgrounded } = require('../../src/services/alerts/rules');
 
 const MIN = 60000;
 const cfg = {
   rules: {
-    OFFLINE: { thresholdMs: 15 * MIN },
-    STOPPED: { thresholdMs: 12 * MIN },
-    STUCK:   { thresholdMs: 10 * MIN }
+    OFFLINE:      { thresholdMs: 15 * MIN },
+    STOPPED:      { thresholdMs: 12 * MIN },
+    STUCK:        { thresholdMs: 10 * MIN },
+    BACKGROUNDED: { thresholdMs:  5 * MIN }
   }
 };
 const NOW = 1_000_000_000;
@@ -70,5 +71,24 @@ describe('isStuck', () => {
     const ctx = { now: NOW, online: true, isPlaying: false,
       lastAdChangedAt: NOW - 30 * MIN, lastStuckPulseAt: NOW - 1 * MIN };
     expect(isStuck(ctx, cfg)).to.equal(false);
+  });
+});
+
+describe('isBackgrounded', () => {
+  it('true when online and not-foreground has held past threshold', () => {
+    const ctx = { now: NOW, online: true, notForegroundSince: NOW - 6 * MIN };
+    expect(isBackgrounded(ctx, cfg)).to.equal(true);
+  });
+  it('false when currently foreground (notForegroundSince null)', () => {
+    const ctx = { now: NOW, online: true, notForegroundSince: null };
+    expect(isBackgrounded(ctx, cfg)).to.equal(false);
+  });
+  it('false when offline (offline rule owns disconnected devices)', () => {
+    const ctx = { now: NOW, online: false, notForegroundSince: NOW - 60 * MIN };
+    expect(isBackgrounded(ctx, cfg)).to.equal(false);
+  });
+  it('false when not-foreground only 2 min (under 5 min threshold)', () => {
+    const ctx = { now: NOW, online: true, notForegroundSince: NOW - 2 * MIN };
+    expect(isBackgrounded(ctx, cfg)).to.equal(false);
   });
 });

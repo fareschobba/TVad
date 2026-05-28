@@ -33,7 +33,16 @@ function createMonitor(deps) {
     return sendWindow.length < config.rateCap;
   }
 
-  const predicate = { OFFLINE: rules.isOffline, STOPPED: rules.isStopped, STUCK: rules.isStuck };
+  const predicate = {
+    OFFLINE: rules.isOffline,
+    STOPPED: rules.isStopped,
+    STUCK: rules.isStuck,
+    BACKGROUNDED: rules.isBackgrounded
+  };
+  // Rules whose evaluation depends on a live online device; suppressed while the device
+  // is offline OR while OFFLINE is the firing root cause, so an incident from one of these
+  // rules cannot emit a spurious RECOVER during a disconnect.
+  const onlineOnlyRules = new Set(['STOPPED', 'STUCK', 'BACKGROUNDED']);
 
   function updateTimers(track, s, online, t) {
     track.online = online;
@@ -51,6 +60,9 @@ function createMonitor(deps) {
       const playing = config.playingStates.includes(track.lastSnapshot.playerState);
       track.timers.notPlayingSince = playing ? null
         : (track.timers.notPlayingSince == null ? t : track.timers.notPlayingSince);
+      const foreground = config.foregroundStates.includes(track.lastSnapshot.appState);
+      track.timers.notForegroundSince = foreground ? null
+        : (track.timers.notForegroundSince == null ? t : track.timers.notForegroundSince);
       if (track.lastSnapshot.currentAd && track.lastSnapshot.currentAd !== track.timers.lastAdValue) {
         track.timers.lastAdValue = track.lastSnapshot.currentAd;
         track.timers.lastAdChangedAt = t;
@@ -66,6 +78,7 @@ function createMonitor(deps) {
       lastSeenAt: track.lastSeenAt,
       isPlaying: config.playingStates.includes(track.lastSnapshot.playerState),
       notPlayingSince: track.timers.notPlayingSince,
+      notForegroundSince: track.timers.notForegroundSince,
       lastAdChangedAt: track.timers.lastAdChangedAt,
       lastStuckPulseAt: track.timers.lastStuckPulseAt
     };
@@ -103,11 +116,11 @@ function createMonitor(deps) {
 
         for (const rule of RULE_IDS) {
           if (!config.rules[rule].enabled) continue;
-          // Incident correlation: STOPPED/STUCK are meaningless while the device is
-          // unreachable. Skip them whenever the device is offline OR offline is already
-          // firing, so a previously-firing STOPPED/STUCK incident is left untouched (no
-          // spurious RECOVER) during the window where OFFLINE is still pending.
-          if ((rule === 'STOPPED' || rule === 'STUCK') && (!track.online || offlineFiring)) continue;
+          // Incident correlation: STOPPED / STUCK / BACKGROUNDED are meaningless while
+          // the device is unreachable. Skip them whenever the device is offline OR offline
+          // is already firing, so a previously-firing dependent incident is left untouched
+          // (no spurious RECOVER) during the window where OFFLINE is still pending.
+          if (onlineOnlyRules.has(rule) && (!track.online || offlineFiring)) continue;
 
           const ctx = buildCtx(track, t);
           const isBad = predicate[rule](ctx, config);

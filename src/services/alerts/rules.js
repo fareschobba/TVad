@@ -25,4 +25,13 @@ function isStuck(ctx, cfg) {
   return adStale && recentPulse;
 }
 
-module.exports = { isOffline, isStopped, isStuck };
+// Online but the app is not in a foreground state, sustained past threshold.
+// "Backgrounded" here means the kiosk app left foreground (user pressed Home,
+// another app took over, etc.) even though the player may still be running.
+function isBackgrounded(ctx, cfg) {
+  if (!ctx.online) return false;                       // offline rule owns disconnected devices
+  if (ctx.notForegroundSince == null) return false;    // currently foreground (or unknown)
+  return (ctx.now - ctx.notForegroundSince) > cfg.rules.BACKGROUNDED.thresholdMs;
+}
+
+module.exports = { isOffline, isStopped, isStuck, isBackgrounded };

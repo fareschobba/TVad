@@ -12,7 +12,10 @@ describe('loadAlertConfig', () => {
     expect(cfg.rules.OFFLINE.thresholdMs).to.equal(15 * 60000);
     expect(cfg.rules.STOPPED.thresholdMs).to.equal(12 * 60000);
     expect(cfg.rules.STUCK.thresholdMs).to.equal(10 * 60000);
+    expect(cfg.rules.BACKGROUNDED.thresholdMs).to.equal(5 * 60000);
+    expect(cfg.rules.BACKGROUNDED.enabled).to.equal(true);
     expect(cfg.playingStates).to.deep.equal(['playing']);
+    expect(cfg.foregroundStates).to.deep.equal(['foreground']);
     expect(Object.isFrozen(cfg)).to.equal(true);
   });
 
@@ -34,7 +37,7 @@ describe('loadAlertConfig', () => {
   });
 
   it('exposes RULE_IDS in canonical order', () => {
-    expect(RULE_IDS).to.deep.equal(['OFFLINE', 'STOPPED', 'STUCK']);
+    expect(RULE_IDS).to.deep.equal(['OFFLINE', 'STOPPED', 'STUCK', 'BACKGROUNDED']);
   });
 
   // Regression: a user pasted documented examples into .env with trailing "# description"
