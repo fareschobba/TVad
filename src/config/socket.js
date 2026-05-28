@@ -584,5 +584,12 @@ module.exports = {
   // Public helpers used elsewhere
   getDeviceState: (deviceId) => deviceStates.get(deviceId) || null,
   getAllDeviceStates: () => Object.fromEntries(deviceStates),
-  clearDeviceState: (deviceId) => deviceStates.delete(deviceId)
+  clearDeviceState: (deviceId) => deviceStates.delete(deviceId),
+
+  // True if a device socket is currently present in its room.
+  isDeviceConnected: (deviceId) => {
+    if (!io) return false;
+    const room = io.sockets.adapter.rooms.get(deviceRoomFor(deviceId));
+    return !!(room && room.size > 0);
+  }
 };
