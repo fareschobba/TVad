@@ -93,11 +93,39 @@ function relayResponseToOriginator(eventName, data) {
   }
 }
 
-// Update in-memory snapshot for a device and emit to the admins room.
+// A currentAd of null / "" / {} is the device saying "no ad right now" — it lands during
+// boot or between ads. Treat it as "absent" rather than valid data when merging.
+function isEmptyAd(v) {
+  if (v == null) return true;
+  if (typeof v === 'string') return v.trim() === '';
+  if (typeof v === 'object') return Object.keys(v).length === 0;
+  return false;
+}
+
+// Non-destructive merge for the playerState slice: take new fields, but if the incoming
+// currentAd is empty, keep the last known one. Without this, an on-demand requestDeviceState
+// reply (or an unlucky stateHeartbeat) at a between-ads moment would wipe "Current Playing
+// Ad" from the cache. The fields the device reports each cycle are otherwise idempotent.
+function mergePlayerState(prev, next) {
+  const p = prev || {};
+  const n = next || {};
+  const merged = { ...p, ...n };
+  if (isEmptyAd(n.currentAd) && !isEmptyAd(p.currentAd)) {
+    merged.currentAd = p.currentAd;
+  }
+  return merged;
+}
+
+// Update in-memory snapshot for a device and emit to the admins room. The merge is
+// per-slice; playerState specifically is merged via mergePlayerState so a between-ads
+// reply never wipes the stored currentAd.
 function updateAndBroadcastState(deviceId, slice, eventName, data) {
   if (!deviceId) return;
   if (!deviceStates.has(deviceId)) deviceStates.set(deviceId, {});
   const s = deviceStates.get(deviceId);
+  if (slice && slice.playerState) {
+    slice = { ...slice, playerState: mergePlayerState(s.playerState, slice.playerState) };
+  }
   Object.assign(s, slice);
   s.lastUpdate = Date.now();
   io.to(ADMINS_ROOM).emit(eventName, data);
@@ -317,10 +345,11 @@ module.exports = {
         const authz = await canOperateOnDevice(socket, 'requestDeviceState', deviceId);
         if (!authz.ok) return socket.emit('authError', { event: 'requestDeviceState', error: authz.status, requestId });
 
-        // 1) Serve the last recorded snapshot to the requesting admin only.
+        // 1) Serve the last recorded snapshot to the requesting admin immediately so the tab
+        //    is usable even when the device is offline / slow / never answers.
         //    stateHeartbeat repaints all four state cards; deviceStateResponse resolves the
         //    button's pending request (matched by requestId). Missing slices are simply absent
-        //    (the device has never reported them), and the cards stay in their "waiting" state.
+        //    and the cards stay in their "waiting" state.
         const stored = deviceStates.get(deviceId) || {};
         const snapshot = { deviceId };
         if (stored.appState)    snapshot.appState    = stored.appState;
@@ -330,10 +359,13 @@ module.exports = {
         socket.emit('stateHeartbeat', snapshot);
         socket.emit('deviceStateResponse', { ...snapshot, requestId, lastUpdate: stored.lastUpdate || null });
 
-        // 2) Best-effort live refresh: if the device is currently connected, ask it to push
+        // 2) Best-effort live refresh: if the device is currently connected, nudge it to push
         //    fresh state. Its reply flows through the normal deviceStateResponse / *StateChanged
-        //    handlers and refreshes both the cache and (on the device's next push) the cards.
-        //    A distinct requestId is used so this can never race the stored reply above.
+        //    handlers and updates both the cache and the cards. A distinct requestId is used so
+        //    this can never race the stored reply above.
+        //    Safe to round-trip: the non-destructive mergePlayerState in updateAndBroadcastState
+        //    and the deviceStateResponse handler preserves a populated currentAd against the
+        //    device's between-ads `currentAd:{}` reply — no cache wipe.
         const room = deviceRoomFor(deviceId);
         const occupants = io.sockets.adapter.rooms.get(room);
         if (occupants && occupants.size > 0) {
@@ -359,7 +391,13 @@ module.exports = {
           if (data.systemState) slice.systemState = data.systemState;
           if (data.playerState) slice.playerState = data.playerState;
           if (!deviceStates.has(data.deviceId)) deviceStates.set(data.deviceId, {});
-          Object.assign(deviceStates.get(data.deviceId), slice, { lastUpdate: Date.now() });
+          const stored = deviceStates.get(data.deviceId);
+          if (slice.playerState) {
+            // Preserve a populated currentAd against an empty incoming one (device
+            // answering an on-demand state request between ads).
+            slice.playerState = mergePlayerState(stored.playerState, slice.playerState);
+          }
+          Object.assign(stored, slice, { lastUpdate: Date.now() });
         }
         relayResponseToOriginator('deviceStateResponse', data);
       });
