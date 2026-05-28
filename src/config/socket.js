@@ -299,7 +299,12 @@ module.exports = {
         if (!ok) socket.emit('duplicate', { event: 'restartApp', requestId });
       });
 
-      // ─── requestDeviceState (admin → device) ───
+      // ─── requestDeviceState (admin → last recorded snapshot, + best-effort live refresh) ───
+      // The "Refresh all states" button must return the LAST sent/recorded status of the TV,
+      // which the server already keeps in the in-memory `deviceStates` cache (fed by
+      // deviceStateResponse + *StateChanged + stateHeartbeat). We serve that immediately so the
+      // tab works even when the device is offline, instead of round-tripping to a device that
+      // may never answer (which previously left the button to time out).
       socket.on('requestDeviceState', async (data) => {
         if (!requireAdminSocket(socket, 'requestDeviceState')) return;
         const parsed = parseOr(socket, 'requestDeviceState', schemas.requestDeviceStateSchema, data);
@@ -312,8 +317,28 @@ module.exports = {
         const authz = await canOperateOnDevice(socket, 'requestDeviceState', deviceId);
         if (!authz.ok) return socket.emit('authError', { event: 'requestDeviceState', error: authz.status, requestId });
 
-        const ok = dispatchToDevice({ socket, event: 'requestDeviceState', deviceId, requestId, payload: {} });
-        if (!ok) socket.emit('duplicate', { event: 'requestDeviceState', requestId });
+        // 1) Serve the last recorded snapshot to the requesting admin only.
+        //    stateHeartbeat repaints all four state cards; deviceStateResponse resolves the
+        //    button's pending request (matched by requestId). Missing slices are simply absent
+        //    (the device has never reported them), and the cards stay in their "waiting" state.
+        const stored = deviceStates.get(deviceId) || {};
+        const snapshot = { deviceId };
+        if (stored.appState)    snapshot.appState    = stored.appState;
+        if (stored.tvState)     snapshot.tvState     = stored.tvState;
+        if (stored.systemState) snapshot.systemState = stored.systemState;
+        if (stored.playerState) snapshot.playerState = stored.playerState;
+        socket.emit('stateHeartbeat', snapshot);
+        socket.emit('deviceStateResponse', { ...snapshot, requestId, lastUpdate: stored.lastUpdate || null });
+
+        // 2) Best-effort live refresh: if the device is currently connected, ask it to push
+        //    fresh state. Its reply flows through the normal deviceStateResponse / *StateChanged
+        //    handlers and refreshes both the cache and (on the device's next push) the cards.
+        //    A distinct requestId is used so this can never race the stored reply above.
+        const room = deviceRoomFor(deviceId);
+        const occupants = io.sockets.adapter.rooms.get(room);
+        if (occupants && occupants.size > 0) {
+          dispatchToDevice({ socket, event: 'requestDeviceState', deviceId, requestId: uuidv4(), payload: {} });
+        }
       });
 
       // ─── Device → admin response events (targeted reply) ───
