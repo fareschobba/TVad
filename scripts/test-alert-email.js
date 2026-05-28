@@ -98,7 +98,37 @@ async function main() {
   console.log(`[alert-test] OK — messageId=${info && info.messageId ? info.messageId : '(none)'}`);
 }
 
+function smtpDiagnostic() {
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const secure = process.env.SMTP_SECURE;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.EMAIL_FROM;
+  const mask = (v) => (v ? `${v.slice(0, 2)}…${v.slice(-2)} (len=${v.length})` : '(unset)');
+  console.error('[alert-test] SMTP config (from env):');
+  console.error(`  SMTP_HOST   = ${host || '(unset)'}`);
+  console.error(`  SMTP_PORT   = ${port || '(unset)'}`);
+  console.error(`  SMTP_SECURE = ${secure || '(unset)'}`);
+  console.error(`  SMTP_USER   = ${user || '(unset)'}`);
+  console.error(`  SMTP_PASS   = ${pass ? '(set)' : '(unset)'}  // length-only mask: ${mask(pass)}`);
+  console.error(`  EMAIL_FROM  = ${from || '(unset)'}`);
+  const portN = Number(port);
+  const sec = secure === 'true';
+  if (portN === 465 && !sec) {
+    console.error('[alert-test] hint: port 465 expects SMTP_SECURE=true (implicit TLS). Mismatch is a common cause of "Greeting never received".');
+  } else if ((portN === 587 || portN === 25) && sec) {
+    console.error(`[alert-test] hint: port ${portN} expects SMTP_SECURE=false (STARTTLS). Mismatch is a common cause of "Greeting never received".`);
+  }
+  if (host && port) {
+    console.error('[alert-test] verify reachability from this machine:');
+    console.error(`  PowerShell:  Test-NetConnection -ComputerName ${host} -Port ${port}`);
+    console.error(`  bash:        nc -zv ${host} ${port}    (or: openssl s_client -connect ${host}:${port})`);
+  }
+}
+
 main().catch(err => {
   console.error(`[alert-test] FAILED: ${err.message}`);
+  smtpDiagnostic();
   process.exit(1);
 });
