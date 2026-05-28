@@ -13,8 +13,15 @@
 //   npm run alert:test -- --dry                             # preview, do NOT send
 //
 // Honors ALERT_RECIPIENTS and SMTP_* from .env. Exits 0 on success, non-zero on error.
+//
+// Override the .env path with ALERT_TEST_ENV_FILE if your real env lives elsewhere
+// (e.g. a systemd EnvironmentFile that the running service uses):
+//   ALERT_TEST_ENV_FILE=/etc/tvad-staging/env npm run alert:test
 
-require('dotenv').config();
+const path = require('path');
+const envFile = process.env.ALERT_TEST_ENV_FILE || path.resolve(__dirname, '..', '.env');
+const dotenvResult = require('dotenv').config({ path: envFile });
+
 const { loadAlertConfig } = require('../src/config/alerts');
 const { buildDeviceAlertEmail } = require('../src/services/alerts/emailTemplate');
 const emailService = require('../src/services/email.service');
@@ -47,7 +54,20 @@ async function main() {
 
   const config = loadAlertConfig();
   if (!dry && config.recipients.length === 0) {
-    console.error('[alert-test] ALERT_RECIPIENTS is empty. Set it in .env (comma-separated) and retry, or pass --dry to preview without sending.');
+    console.error('[alert-test] ALERT_RECIPIENTS is empty — nothing to send to.');
+    console.error(`[alert-test] dotenv read from: ${envFile}`);
+    if (dotenvResult.error) {
+      console.error(`[alert-test] dotenv error: ${dotenvResult.error.message}`);
+    } else {
+      const loadedKeys = Object.keys(dotenvResult.parsed || {});
+      console.error(`[alert-test] dotenv loaded ${loadedKeys.length} keys; ALERT_RECIPIENTS present in file? ${loadedKeys.includes('ALERT_RECIPIENTS') ? 'yes' : 'no'}`);
+    }
+    console.error(`[alert-test] process.env.ALERT_RECIPIENTS = ${JSON.stringify(process.env.ALERT_RECIPIENTS)}`);
+    console.error('[alert-test] Common causes:');
+    console.error('  - Running on a machine whose .env does not have the alert block (e.g. local dev vs. VPS).');
+    console.error('  - Your service uses a systemd EnvironmentFile at a different path — set ALERT_TEST_ENV_FILE=/that/path and retry.');
+    console.error('  - Leading whitespace before "ALERT_RECIPIENTS=" in the file (dotenv may skip those lines).');
+    console.error('  - Pass --dry to preview without sending.');
     process.exit(2);
   }
 
