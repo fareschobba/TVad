@@ -10,13 +10,25 @@ const socket = require('../../config/socket');
 const emailer = require('../email.service');
 const Device = require('../../models/device');
 
-// Resolve display fields for an email; cheap (alerts are rare). Falls back to deviceId.
+// Resolve display fields for an email; cheap (alerts are rare). Populates the owner so
+// emails can show a human-readable username instead of a raw Mongo ObjectId. Falls back
+// to deviceId / null on any error so a missing/broken ref never crashes the dispatch.
 async function resolveDevice(deviceId) {
   try {
-    const d = await Device.findOne({ deviceId }).select('name userId').lean();
-    return { deviceId, name: d?.name || deviceId, userId: d?.userId || null };
+    const d = await Device.findOne({ deviceId })
+      .select('name userId')
+      .populate('userId', 'username email')
+      .lean();
+    if (!d) return { deviceId, name: deviceId, ownerName: null, ownerEmail: null };
+    const owner = d.userId && typeof d.userId === 'object' ? d.userId : null;
+    return {
+      deviceId,
+      name: d.name || deviceId,
+      ownerName: owner?.username || null,
+      ownerEmail: owner?.email || null
+    };
   } catch {
-    return { deviceId, name: deviceId, userId: null };
+    return { deviceId, name: deviceId, ownerName: null, ownerEmail: null };
   }
 }
 

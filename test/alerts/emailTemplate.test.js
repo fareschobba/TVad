@@ -31,4 +31,22 @@ describe('buildDeviceAlertEmail', () => {
     expect(m.text).to.be.a('string');
     expect(m.html).to.be.a('string');
   });
+
+  it('shows the owner display name (not a userId) when provided', () => {
+    const m = buildDeviceAlertEmail('ENTER', {
+      ...base,
+      device: { deviceId: 'AB12C', name: 'Lobby Screen', ownerName: 'fares', ownerEmail: 'fares@aromamaster.tn' }
+    });
+    expect(m.text).to.contain('Owner: fares');
+    expect(m.text).to.not.contain('Owner (userId)');
+    expect(m.html).to.contain('fares');
+  });
+
+  it('falls back to n/a when no ownerName is provided', () => {
+    const m = buildDeviceAlertEmail('ENTER', {
+      ...base,
+      device: { deviceId: 'AB12C', name: 'Lobby Screen' }
+    });
+    expect(m.text).to.contain('Owner: n/a');
+  });
 });

@@ -18,7 +18,7 @@ function buildDeviceAlertEmail(kind, { rule, device, snapshot = {}, timestamps =
   const lines = [
     `${kind === 'ENTER' ? 'ALERT' : 'RECOVERED'}: ${label}`,
     `Device: ${name} (${device.deviceId})`,
-    `Owner (userId): ${device.userId || 'n/a'}`,
+    `Owner: ${device.ownerName || 'n/a'}`,
     `Event time (server): ${iso(timestamps.detectedAt || timestamps.recoveredAt)}`,
     `Last seen: ${iso(timestamps.lastSeenAt)}`,
     `Player state: ${snapshot.playerState || 'n/a'}`,
