@@ -1,5 +1,6 @@
 const transporter = require('../config/email');
 const path = require('path');
+const { buildDeviceAlertEmail } = require('./alerts/emailTemplate');
 
 class EmailService {
   constructor() {
@@ -126,6 +127,12 @@ class EmailService {
       html,
       text: `Réinitialisation de Votre Compte\n\nCher(e) ${username},\n\nVotre compte a été réinitialisé avec succès.\n\nVoici vos nouveaux identifiants de connexion :\n\nNom d'utilisateur : ${username}\nMot de passe temporaire : ${temporaryPassword}\n\nPour des raisons de sécurité, veuillez changer votre mot de passe lors de votre prochaine connexion.\n\nSi vous n'avez pas demandé cette réinitialisation, veuillez contacter immédiatement l'administrateur.\n\nCordialement,\nÉquipe AROMAMASTER`
     });
+  }
+
+  // Device monitoring alert (entry or recovery). `recipients` is an array of addresses.
+  async sendDeviceAlert({ kind, rule, device, snapshot, timestamps, recipients }) {
+    const { subject, text, html } = buildDeviceAlertEmail(kind, { rule, device, snapshot, timestamps });
+    return this.sendMail({ to: recipients.join(','), subject, text, html });
   }
 }
 
