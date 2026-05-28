@@ -1,5 +1,18 @@
 // src/services/alerts/monitor.js
-const RULE_IDS = ['OFFLINE', 'STOPPED', 'STUCK'];
+const { RULE_IDS } = require('../../config/alerts');
+
+// Reduce an ad to a stable scalar identity string, mirroring how the device
+// decides a "significant change" (prefer name, else index). The device sends
+// currentAd as a fresh object each heartbeat, so comparing raw references would
+// always look like a change and reset the STUCK timer every tick.
+function adIdentity(ad) {
+  if (ad == null) return null;
+  if (typeof ad !== 'object') return ad;            // already a scalar (tests pass strings)
+  const name = (ad.name || '').trim();
+  if (name) return name;
+  const idx = typeof ad.index === 'number' ? ad.index : -1;
+  return idx >= 0 ? `#${idx}` : null;
+}
 
 function createMonitor(deps) {
   const {
@@ -31,7 +44,7 @@ function createMonitor(deps) {
       const p = s.playerState || {};
       track.lastSnapshot = {
         playerState: p.playerState ?? track.lastSnapshot.playerState ?? null,
-        currentAd: p.currentAd ?? track.lastSnapshot.currentAd ?? null,
+        currentAd: adIdentity(p.currentAd) ?? track.lastSnapshot.currentAd ?? null,
         isStuck: p.isStuck === true,
         appState: (s.appState && s.appState.state) || track.lastSnapshot.appState || null
       };
@@ -90,13 +103,25 @@ function createMonitor(deps) {
 
         for (const rule of RULE_IDS) {
           if (!config.rules[rule].enabled) continue;
-          // Incident correlation: while offline is firing, suppress dependent rules.
-          if (offlineFiring && (rule === 'STOPPED' || rule === 'STUCK')) continue;
+          // Incident correlation: STOPPED/STUCK are meaningless while the device is
+          // unreachable. Skip them whenever the device is offline OR offline is already
+          // firing, so a previously-firing STOPPED/STUCK incident is left untouched (no
+          // spurious RECOVER) during the window where OFFLINE is still pending.
+          if ((rule === 'STOPPED' || rule === 'STUCK') && (!track.online || offlineFiring)) continue;
 
           const ctx = buildCtx(track, t);
           const isBad = predicate[rule](ctx, config);
-          const allowEntry = config.enabled && !quiet && budgetAvailable(t);
-          const allowRecover = config.enabled && budgetAvailable(t);
+          const budget = budgetAvailable(t);
+          const allowEntry = config.enabled && !quiet && budget;
+          const allowRecover = config.enabled && budget;
+          // Observability: an alert that would have fired but is withheld solely by the rate cap.
+          if (!budget) {
+            const wantEntry = track.incidents[rule].state === 'OK' && isBad && config.enabled && !quiet;
+            const wantRecover = track.incidents[rule].state === 'FIRING' && !isBad && config.enabled;
+            if (wantEntry || wantRecover) {
+              logger.warn(`[alerts] rate cap reached — withheld ${wantEntry ? 'ENTER' : 'RECOVER'} for ${deviceId}/${rule}`);
+            }
+          }
           const res = evaluate(track.incidents[rule], isBad, { now: t, allowEntry, allowRecover });
 
           if (res.action === 'ENTER') {

@@ -1,7 +1,7 @@
 // src/services/alerts/store.js
 const { freshIncident } = require('./stateMachine');
+const { RULE_IDS } = require('../../config/alerts');
 
-const RULE_IDS = ['OFFLINE', 'STOPPED', 'STUCK'];
 const msOf = (d) => (d ? new Date(d).getTime() : null);
 const dateOf = (ms) => (ms == null ? null : new Date(ms));
 

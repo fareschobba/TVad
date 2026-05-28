@@ -1,6 +1,8 @@
 // src/services/alerts/stateMachine.js
 
 function freshIncident() {
+  // lastNotifiedAt is reserved for a future periodic re-alert feature; it is
+  // currently written but never read.
   return { state: 'OK', badSince: null, entrySentAt: null, lastNotifiedAt: null };
 }
 

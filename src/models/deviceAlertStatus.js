@@ -9,7 +9,7 @@ const incidentSchema = new mongoose.Schema({
 }, { _id: false });
 
 const deviceAlertStatusSchema = new mongoose.Schema({
-  deviceId: { type: String, unique: true, required: true, uppercase: true, index: true },
+  deviceId: { type: String, unique: true, required: true, index: true },
   lastSeenAt: { type: Date, default: null },
   online: { type: Boolean, default: false },
   lastSnapshot: {

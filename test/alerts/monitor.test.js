@@ -117,4 +117,75 @@ describe('monitor scenarios', () => {
     await monitor.tick(DAY);              // must not throw
     expect(emailer.sendDeviceAlert.calledOnce).to.equal(true);
   });
+
+  it('STUCK fires once when the same ad object (by value) persists past threshold', async () => {
+    // currentAd arrives as a fresh object reference every heartbeat but is the same ad.
+    const ad = { index: 1, name: 'promo_07' };
+    const states = {
+      AB12C: { lastUpdate: DAY, playerState: { playerState: 'playing', currentAd: ad, isStuck: true } }
+    };
+    const { monitor, emailer } = makeMonitor({ states, connected: { AB12C: true } });
+    await monitor.tick(DAY);                                   // ad first observed
+    // Same ad, distinct object instances, across ticks spanning > STUCK threshold (10 min).
+    states.AB12C.playerState = { playerState: 'playing', currentAd: { index: 1, name: 'promo_07' }, isStuck: true };
+    await monitor.tick(DAY + 6 * MIN, { AB12C: true });
+    states.AB12C.playerState = { playerState: 'playing', currentAd: { index: 1, name: 'promo_07' }, isStuck: true };
+    await monitor.tick(DAY + 12 * MIN, { AB12C: true });
+    const stucks = emailer.sendDeviceAlert.getCalls()
+      .filter(c => c.args[0].kind === 'ENTER' && c.args[0].rule === 'STUCK');
+    expect(stucks.length).to.equal(1);
+  });
+
+  it('STUCK does NOT fire when the ad changes between ticks', async () => {
+    const states = {
+      AB12C: { lastUpdate: DAY, playerState: { playerState: 'playing', currentAd: { index: 1, name: 'promo_07' }, isStuck: true } }
+    };
+    const { monitor, emailer, store } = makeMonitor({ states, connected: { AB12C: true } });
+    await monitor.tick(DAY);
+    const t1 = store.get('AB12C').timers.lastAdChangedAt;
+    // ad rotates -> lastAdChangedAt must advance, STUCK must not fire
+    states.AB12C.playerState = { playerState: 'playing', currentAd: { index: 2, name: 'promo_08' }, isStuck: true };
+    await monitor.tick(DAY + 6 * MIN, { AB12C: true });
+    states.AB12C.playerState = { playerState: 'playing', currentAd: { index: 3, name: 'promo_09' }, isStuck: true };
+    await monitor.tick(DAY + 12 * MIN, { AB12C: true });
+    const t2 = store.get('AB12C').timers.lastAdChangedAt;
+    expect(t2).to.be.greaterThan(t1);
+    const stucks = emailer.sendDeviceAlert.getCalls()
+      .filter(c => c.args[0].kind === 'ENTER' && c.args[0].rule === 'STUCK');
+    expect(stucks.length).to.equal(0);
+  });
+
+  it('no false STOPPED RECOVER when a stopped device disconnects within OFFLINE threshold', async () => {
+    // Online + not playing long enough to fire STOPPED (threshold 12 min).
+    const states = {
+      AB12C: { lastUpdate: DAY - 20 * MIN, playerState: { playerState: 'idle', currentAd: null, isStuck: false } }
+    };
+    const { monitor, emailer } = makeMonitor({ states, connected: { AB12C: true } });
+    // First tick: device was already not-playing 20 min ago. notPlayingSince seeds at tick time,
+    // so drive two ticks far enough apart to exceed STOPPED threshold while online.
+    await monitor.tick(DAY, { AB12C: true });                 // seeds notPlayingSince = DAY
+    await monitor.tick(DAY + 13 * MIN, { AB12C: true });      // STOPPED ENTER
+    const enters = emailer.sendDeviceAlert.getCalls().filter(c => c.args[0].kind === 'ENTER' && c.args[0].rule === 'STOPPED');
+    expect(enters.length).to.equal(1);
+    // Device now disconnects but is still within OFFLINE threshold (15 min) since lastUpdate.
+    states.AB12C = { lastUpdate: DAY + 13 * MIN, playerState: { playerState: 'idle', currentAd: null, isStuck: false } };
+    await monitor.tick(DAY + 14 * MIN, { AB12C: false });
+    const recovers = emailer.sendDeviceAlert.getCalls().filter(c => c.args[0].kind === 'RECOVER' && c.args[0].rule === 'STOPPED');
+    expect(recovers.length).to.equal(0);
+  });
+
+  it('rate cap bounds the number of emails sent in a single tick', async () => {
+    // Three simultaneously-offline devices, rate cap = 2 => at most 2 emails this tick.
+    const states = {
+      D1: { lastUpdate: DAY - 20 * MIN },
+      D2: { lastUpdate: DAY - 20 * MIN },
+      D3: { lastUpdate: DAY - 20 * MIN }
+    };
+    const { monitor, emailer } = makeMonitor({
+      states, connected: { D1: false, D2: false, D3: false },
+      cfgEnv: { ALERT_RATE_CAP: '2' }
+    });
+    await monitor.tick(DAY);
+    expect(emailer.sendDeviceAlert.callCount).to.be.at.most(2);
+  });
 });
