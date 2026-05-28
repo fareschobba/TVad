@@ -158,9 +158,12 @@ const mongooseOptions = {
   socketTimeoutMS: 45000,
 };
 
+const { startDeviceAlerts } = require('./services/alerts');
+
 mongoose.connect(process.env.MONGODB_URI, mongooseOptions)
   .then(() => {
     console.log('Connected to MongoDB');
+    startDeviceAlerts().catch(err => console.error('[alerts] failed to start:', err));
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
